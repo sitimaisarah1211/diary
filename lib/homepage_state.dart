@@ -7,6 +7,8 @@ class HomePageState extends State<HomePage> {
 
   List<Map<String, dynamic>> _diaries = [];
   bool _isLoading = true;
+  Map<String, dynamic>? _lastDeletedDiary;
+  int? _lastCreatedDiaryId;
 
   @override
   void initState() {
@@ -125,16 +127,30 @@ class HomePageState extends State<HomePage> {
 
   Future<void> _addDiary() async {
     try {
-      await SQLHelper.createDiary(
+      final newId = await SQLHelper.createDiary(
         _feelingController.text.trim(),
         _descriptionController.text.trim(),
       );
+      _lastCreatedDiaryId = newId;
       _refreshDiaries();
       _feelingController.clear();
       _descriptionController.clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Diary created successfully!')),
+          SnackBar(
+            content: const Text('Diary created successfully!'),
+            action: SnackBarAction(
+              label: 'Undo',
+              textColor: Colors.amber,
+              onPressed: () async {
+                if (_lastCreatedDiaryId != null) {
+                  await SQLHelper.deleteDiary(_lastCreatedDiaryId!);
+                  _refreshDiaries();
+                  _lastCreatedDiaryId = null;
+                }
+              },
+            ),
+          ),
         );
       }
     } catch (e) {
@@ -171,11 +187,53 @@ class HomePageState extends State<HomePage> {
   }
 
   Future<void> _deleteDiary(int id) async {
-    await SQLHelper.deleteDiary(id);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Diary deleted successfully')),
+    final diary = _diaries.firstWhere((element) => element['id'] == id);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Confirm delete'),
+          content: const Text('Are you sure you want to delete this diary entry?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('No'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Yes'),
+            ),
+          ],
+        );
+      },
     );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    _lastDeletedDiary = Map<String, dynamic>.from(diary);
+    await SQLHelper.deleteDiary(id);
     _refreshDiaries();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Diary deleted'),
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: Colors.tealAccent,
+            onPressed: () async {
+              if (_lastDeletedDiary != null) {
+                await SQLHelper.saveDiary(_lastDeletedDiary!);
+                _refreshDiaries();
+                _lastDeletedDiary = null;
+              }
+            },
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -183,7 +241,12 @@ class HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Siti Maisarah Diary'),
-        backgroundColor: Colors.teal,
+        actions: [
+          IconButton(
+            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            onPressed: widget.onToggleTheme,
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

@@ -95,6 +95,19 @@ class SQLHelper {
     }
   }
 
+  // Save or restore a diary entry with a specific ID.
+  static Future<void> saveDiary(Map<String, dynamic> diary) async {
+    final prefs = await SharedPreferences.getInstance();
+    final diaries = getDiariesFromPrefs(prefs);
+    final index = diaries.indexWhere((d) => d['id'] == diary['id']);
+    if (index != -1) {
+      diaries[index] = diary;
+    } else {
+      diaries.add(diary);
+    }
+    await prefs.setString(_storageKey, jsonEncode(diaries));
+  }
+
   // Delete a diary by id
   static Future<void> deleteDiary(int id) async {
     try {
