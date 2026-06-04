@@ -39,7 +39,8 @@ class SQLHelper {
   // Read all diaries
   static Future<List<Map<String, dynamic>>> getDiaries() async {
     final db = await SQLHelper.db();
-    return db.query('diary', orderBy: "id");
+    // Return newest entries first to match UI expectation.
+    return db.query('diary', orderBy: "id DESC");
   }
 
   // Read a single diary by id
