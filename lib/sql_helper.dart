@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart' as sql;
 
 class SQLHelper {
@@ -28,10 +27,10 @@ class SQLHelper {
   }
 
   // Create new diary (diaries)
-  static Future<int> createDiary(String feeling, String? descrption) async {
+  static Future<int> createDiary(String feeling, String? description) async {
     final db = await SQLHelper.db();
 
-    final data = {'feeling': feeling, 'description': descrption};
+    final data = {'feeling': feeling, 'description': description};
     final id = await db.insert('diary', data,
         conflictAlgorithm: sql.ConflictAlgorithm.replace);
     return id;
@@ -52,12 +51,12 @@ class SQLHelper {
 
   // Update an diary by id
   static Future<int> updateDiary(
-      int id, String feeling, String? descrption) async {
+      int id, String feeling, String? description) async {
     final db = await SQLHelper.db();
 
     final data = {
       'feeling': feeling,
-      'description': descrption,
+      'description': description,
       'createdAt': DateTime.now().toString()
     };
 
@@ -72,7 +71,8 @@ class SQLHelper {
     try {
       await db.delete("diary", where: "id = ?", whereArgs: [id]);
     } catch (err) {
-      debugPrint("Something went wrong when deleting a diary: $err");
+      // ignore: avoid_print
+      print("Something went wrong when deleting a diary: $err");
     }
   }
 }
