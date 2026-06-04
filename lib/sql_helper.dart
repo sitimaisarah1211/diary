@@ -1,79 +1,124 @@
-import 'package:sqflite/sqflite.dart' as sql;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:intl/intl.dart';
 
 class SQLHelper {
-  //Future enables you to run tasks asynchronously in order to free up any other threads that shouldn't be blocked.
-  static Future<void> createTables(sql.Database database) async {
-    
-    await database.execute("""CREATE TABLE diary(
-        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-        feeling TEXT,
-        description TEXT,
-        createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-      """);
-  }
-// id: the id of a diary
-// feeling, description: emotion and description of your feeling
-// created_at: the time that the diary was created. It will be automatically handled by SQLite
+  static const String _storageKey = 'diary_entries';
 
-  static Future<sql.Database> db() async {
-    return sql.openDatabase(
-      'diary_siti_maisarah.db',
-      version: 1,
-      onCreate: (sql.Database database, int version) async {
-        await createTables(database);
-      },
-    );
-  }
-
-  // Create new diary (diaries)
+  // Create new diary entry
   static Future<int> createDiary(String feeling, String? description) async {
-    final db = await SQLHelper.db();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final diaries = getDiariesFromPrefs(prefs);
 
-    final data = {'feeling': feeling, 'description': description};
-    final id = await db.insert('diary', data,
-        conflictAlgorithm: sql.ConflictAlgorithm.replace);
-    return id;
+      // Generate new ID
+      int newId = 1;
+      if (diaries.isNotEmpty) {
+        newId = (diaries.map((d) => d['id'] as int).reduce((a, b) => a > b ? a : b)) + 1;
+      }
+
+      final now = DateTime.now();
+      final formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
+
+      final newDiary = {
+        'id': newId,
+        'feeling': feeling,
+        'description': description ?? '',
+        'createdAt': formattedDate,
+      };
+
+      diaries.add(newDiary);
+      await prefs.setString(_storageKey, jsonEncode(diaries));
+      return newId;
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error creating diary: $e');
+      rethrow;
+    }
   }
 
   // Read all diaries
   static Future<List<Map<String, dynamic>>> getDiaries() async {
-    final db = await SQLHelper.db();
-    // Return newest entries first to match UI expectation.
-    return db.query('diary', orderBy: "id DESC");
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final diaries = getDiariesFromPrefs(prefs);
+      // Sort by ID descending (newest first)
+      diaries.sort((a, b) => (b['id'] as int).compareTo(a['id'] as int));
+      return diaries;
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error fetching diaries: $e');
+      return [];
+    }
+  }
+
+  // Helper function to extract diaries from SharedPreferences
+  static List<Map<String, dynamic>> getDiariesFromPrefs(SharedPreferences prefs) {
+    final jsonString = prefs.getString(_storageKey) ?? '[]';
+    try {
+      final List<dynamic> decodedList = jsonDecode(jsonString);
+      return decodedList.cast<Map<String, dynamic>>();
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error parsing diaries: $e');
+      return [];
+    }
+  }
+
+  // Update an existing diary
+  static Future<int> updateDiary(
+      int id, String feeling, String? description) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final diaries = getDiariesFromPrefs(prefs);
+
+      final index = diaries.indexWhere((d) => d['id'] == id);
+      if (index != -1) {
+        final now = DateTime.now();
+        final formattedDate = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
+
+        diaries[index] = {
+          'id': id,
+          'feeling': feeling,
+          'description': description ?? '',
+          'createdAt': formattedDate,
+        };
+
+        await prefs.setString(_storageKey, jsonEncode(diaries));
+        return 1;
+      }
+      return 0;
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error updating diary: $e');
+      rethrow;
+    }
+  }
+
+  // Delete a diary by id
+  static Future<void> deleteDiary(int id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final diaries = getDiariesFromPrefs(prefs);
+      diaries.removeWhere((d) => d['id'] == id);
+      await prefs.setString(_storageKey, jsonEncode(diaries));
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error deleting diary: $e');
+      rethrow;
+    }
   }
 
   // Read a single diary by id
-  // The app doesn't use this method but I put here in case you want to see it
   static Future<List<Map<String, dynamic>>> getDiary(int id) async {
-    final db = await SQLHelper.db();
-    return db.query('diary', where: "id = ?", whereArgs: [id], limit: 1);
-  }
-
-  // Update an diary by id
-  static Future<int> updateDiary(
-      int id, String feeling, String? description) async {
-    final db = await SQLHelper.db();
-
-    final data = {
-      'feeling': feeling,
-      'description': description,
-      'createdAt': DateTime.now().toString()
-    };
-
-    final result =
-        await db.update('diary', data, where: "id = ?", whereArgs: [id]);
-    return result;
-  }
-
-  // Delete a  diary by id
-  static Future<void> deleteDiary(int id) async {
-    final db = await SQLHelper.db();
     try {
-      await db.delete("diary", where: "id = ?", whereArgs: [id]);
-    } catch (err) {
+      final prefs = await SharedPreferences.getInstance();
+      final diaries = getDiariesFromPrefs(prefs);
+      return diaries.where((d) => d['id'] == id).toList();
+    } catch (e) {
       // ignore: avoid_print
-      print("Something went wrong when deleting a diary: $err");
+      print('Error fetching diary: $e');
+      return [];
     }
   }
 }
