@@ -1,10 +1,6 @@
 part of 'homepage.dart';
 
 class HomePageState extends State<HomePage> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final TextEditingController _feelingController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
-
   List<Map<String, dynamic>> _diaries = [];
   bool _isLoading = true;
   bool _isWeatherLoading = true;
@@ -23,8 +19,6 @@ class HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _feelingController.dispose();
-    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -162,125 +156,48 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  void _showForm(int? id) {
+  void _showForm(int? id) async {
+    String title = id == null ? 'Create Diary' : 'Update Diary';
+    String submitLabel = id == null ? 'Create New' : 'Update';
+    String? initialFeeling;
+    String? initialDescription;
+
     if (id != null) {
       final existingDiary =
           _diaries.firstWhere((element) => element['id'] == id);
-      _feelingController.text = existingDiary['feeling'] ?? '';
-      _descriptionController.text = existingDiary['description'] ?? '';
-    } else {
-      _feelingController.clear();
-      _descriptionController.clear();
+      initialFeeling = existingDiary['feeling'] as String?;
+      initialDescription = existingDiary['description'] as String?;
     }
 
-    showModalBottomSheet(
-      context: context,
-      elevation: 5,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => DiaryFormPage(
+          title: title,
+          initialFeeling: initialFeeling,
+          initialDescription: initialDescription,
+          submitLabel: submitLabel,
+          onSave: (feeling, description) async {
+            if (id == null) {
+              await _createDiaryEntry(feeling, description);
+            } else {
+              await _updateDiaryEntry(id, feeling, description);
+            }
+          },
+        ),
       ),
-      builder: (context) {
-        return FractionallySizedBox(
-          heightFactor: 0.55,
-          child: Padding(
-            padding: EdgeInsets.only(
-              top: 20,
-              left: 20,
-              right: 20,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    id == null ? 'Create Diary' : 'Update Diary',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextFormField(
-                          controller: _feelingController,
-                          decoration: const InputDecoration(
-                            labelText: 'Feeling',
-                            hintText: 'e.g. Happy',
-                            border: OutlineInputBorder(),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Please enter a feeling';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _descriptionController,
-                          decoration: const InputDecoration(
-                            labelText: 'Description',
-                            hintText: 'Write something about your day',
-                            border: OutlineInputBorder(),
-                          ),
-                          maxLines: 5,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Please enter a description';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: () async {
-                            if (!_formKey.currentState!.validate()) {
-                              return;
-                            }
-                            if (id == null) {
-                              await _addDiary();
-                            } else {
-                              await _updateDiary(id);
-                            }
-                            Navigator.of(context).pop();
-                          },
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(id == null ? 'Create New' : 'Update'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
+
+    if (mounted) {
+      _refreshDiaries();
+    }
   }
 
-  Future<void> _addDiary() async {
+  Future<void> _createDiaryEntry(String feeling, String description) async {
     try {
-      final newId = await SQLHelper.createDiary(
-        _feelingController.text.trim(),
-        _descriptionController.text.trim(),
-      );
+      final newId = await SQLHelper.createDiary(feeling, description);
       _lastCreatedDiaryId = newId;
-      await _saveLastFeeling(_feelingController.text.trim());
+      await _saveLastFeeling(feeling);
       _refreshDiaries();
-      _feelingController.clear();
-      _descriptionController.clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -309,17 +226,11 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _updateDiary(int id) async {
+  Future<void> _updateDiaryEntry(int id, String feeling, String description) async {
     try {
-      await SQLHelper.updateDiary(
-        id,
-        _feelingController.text.trim(),
-        _descriptionController.text.trim(),
-      );
-      await _saveLastFeeling(_feelingController.text.trim());
+      await SQLHelper.updateDiary(id, feeling, description);
+      await _saveLastFeeling(feeling);
       _refreshDiaries();
-      _feelingController.clear();
-      _descriptionController.clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Diary updated successfully!')),
@@ -582,6 +493,160 @@ class HomePageState extends State<HomePage> {
         backgroundColor: Colors.teal,
         child: const Icon(Icons.add),
         onPressed: () => _showForm(null),
+      ),
+    );
+  }
+}
+
+class DiaryFormPage extends StatefulWidget {
+  const DiaryFormPage({
+    Key? key,
+    required this.title,
+    this.initialFeeling,
+    this.initialDescription,
+    required this.submitLabel,
+    required this.onSave,
+  }) : super(key: key);
+
+  final String title;
+  final String? initialFeeling;
+  final String? initialDescription;
+  final String submitLabel;
+  final Future<void> Function(String feeling, String description) onSave;
+
+  @override
+  State<DiaryFormPage> createState() => _DiaryFormPageState();
+}
+
+class _DiaryFormPageState extends State<DiaryFormPage> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _feelingController;
+  late final TextEditingController _descriptionController;
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _feelingController =
+        TextEditingController(text: widget.initialFeeling ?? '');
+    _descriptionController =
+        TextEditingController(text: widget.initialDescription ?? '');
+  }
+
+  @override
+  void dispose() {
+    _feelingController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSave() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    setState(() {
+      _isSaving = true;
+    });
+    await widget.onSave(
+      _feelingController.text.trim(),
+      _descriptionController.text.trim(),
+    );
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.title),
+        backgroundColor: const Color(0xFF009688),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor.withOpacity(0.95),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.teal.shade100),
+                  ),
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Feeling',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _feelingController,
+                        decoration: const InputDecoration(
+                          hintText: 'e.g. Happy',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter a feeling';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 18),
+                      const Text(
+                        'Description',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _descriptionController,
+                        decoration: const InputDecoration(
+                          hintText: 'Write something about your day',
+                          border: OutlineInputBorder(),
+                        ),
+                        maxLines: 6,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter a description';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: _isSaving ? null : _handleSave,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(widget.submitLabel),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
