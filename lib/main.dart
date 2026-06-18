@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'homepage.dart';
+import 'login_page.dart'; // Memastikan fail login_page diimport masuk ke sini
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -77,6 +78,7 @@ class _MyAppState extends State<MyApp> {
         ),
       ),
       themeMode: _themeMode,
+      // Mengekalkan SplashScreen sebagai pintu masuk utama aplikasi
       home: SplashScreen(
         isDarkMode: _themeMode == ThemeMode.dark,
         onToggleTheme: _toggleThemeMode,
@@ -101,9 +103,10 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     Future.delayed(const Duration(milliseconds: 900), () {
       if (!mounted) return;
+      // DIKEMAS KINI: Berpindah ke LoginPage dahulu (bukan terus ke HomePage)
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => HomePage(
+          builder: (context) => LoginPage(
             isDarkMode: widget.isDarkMode,
             onToggleTheme: widget.onToggleTheme,
           ),

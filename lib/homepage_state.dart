@@ -92,19 +92,13 @@ class HomePageState extends State<HomePage> {
 
   Color _moodCardColor(String? feeling) {
     final mood = feeling?.toLowerCase() ?? '';
-    if (mood.contains('happy') ||
-        mood.contains('joy') ||
-        mood.contains('glad')) {
+    if (mood.contains('happy') || mood.contains('joy') || mood.contains('glad') || mood.contains('gembira')) {
       return const Color(0xFF64FFDA);
     }
-    if (mood.contains('sad') ||
-        mood.contains('down') ||
-        mood.contains('unhappy')) {
+    if (mood.contains('sad') || mood.contains('down') || mood.contains('unhappy') || mood.contains('sedih')) {
       return const Color(0xFFB2EBF2);
     }
-    if (mood.contains('angry') ||
-        mood.contains('mad') ||
-        mood.contains('upset')) {
+    if (mood.contains('angry') || mood.contains('mad') || mood.contains('upset') || mood.contains('marah')) {
       return const Color(0xFFFFCDD2);
     }
     return const Color(0xFF80DEEA);
@@ -112,13 +106,13 @@ class HomePageState extends State<HomePage> {
 
   String _moodGifUrl(String? feeling) {
     final mood = feeling?.toLowerCase() ?? '';
-    if (mood.contains('angry') || mood.contains('mad') || mood.contains('upset')) {
+    if (mood.contains('angry') || mood.contains('mad') || mood.contains('upset') || mood.contains('marah')) {
       return 'assets/images/angry.gif';
     }
-    if (mood.contains('sad') || mood.contains('down') || mood.contains('unhappy')) {
+    if (mood.contains('sad') || mood.contains('down') || mood.contains('unhappy') || mood.contains('sedih')) {
       return 'assets/images/sad.gif';
     }
-    if (mood.contains('happy') || mood.contains('joy') || mood.contains('glad')) {
+    if (mood.contains('happy') || mood.contains('joy') || mood.contains('glad') || mood.contains('gembira')) {
       return 'assets/images/happy.gif';
     }
     return '';
@@ -129,25 +123,32 @@ class HomePageState extends State<HomePage> {
     final mood = feeling?.toLowerCase() ?? '';
 
     if (url.startsWith('assets/')) {
-      return Image.asset(
-        url,
-        fit: BoxFit.cover,
-        width: 40,
-        height: 40,
-        gaplessPlayback: true,
-      );
+      try {
+        return Image.asset(
+          url,
+          fit: BoxFit.cover,
+          width: 40,
+          height: 40,
+          gaplessPlayback: true,
+          errorBuilder: (context, error, stackTrace) => _fallbackEmoji(mood),
+        );
+      } catch (_) {
+        return _fallbackEmoji(mood);
+      }
     }
+    return _fallbackEmoji(mood);
+  }
 
+  Widget _fallbackEmoji(String mood) {
     Color iconColor = Colors.black;
     String emoji = '😊';
-    if (mood.contains('sad') || mood.contains('down') || mood.contains('unhappy')) {
+    if (mood.contains('sad') || mood.contains('down') || mood.contains('unhappy') || mood.contains('sedih')) {
       emoji = '😢';
       iconColor = Colors.blueGrey;
-    } else if (mood.contains('angry') || mood.contains('mad') || mood.contains('upset')) {
+    } else if (mood.contains('angry') || mood.contains('mad') || mood.contains('upset') || mood.contains('marah')) {
       emoji = '😠';
       iconColor = Colors.redAccent;
     }
-
     return Center(
       child: Text(
         emoji,
@@ -163,8 +164,7 @@ class HomePageState extends State<HomePage> {
     String? initialDescription;
 
     if (id != null) {
-      final existingDiary =
-          _diaries.firstWhere((element) => element['id'] == id);
+      final existingDiary = _diaries.firstWhere((element) => element['id'] == id);
       initialFeeling = existingDiary['feeling'] as String?;
       initialDescription = existingDiary['description'] as String?;
     }
@@ -252,8 +252,7 @@ class HomePageState extends State<HomePage> {
       builder: (context) {
         return AlertDialog(
           title: const Text('Confirm delete'),
-          content:
-              const Text('Are you sure you want to delete this diary entry?'),
+          content: const Text('Are you sure you want to delete this diary entry?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -325,17 +324,14 @@ class HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
                 Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   child: Card(
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                     elevation: 3,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -348,25 +344,20 @@ class HomePageState extends State<HomePage> {
                               const SizedBox(width: 10),
                               const Text(
                                 'Quick Dashboard',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold),
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                               ),
                               const Spacer(),
                               if (_isWeatherLoading)
                                 const SizedBox(
                                   width: 18,
                                   height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
+                                  child: CircularProgressIndicator(strokeWidth: 2),
                                 ),
                             ],
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            _weatherSummary ??
-                                'Loading the latest weather and mood summary...',
+                            _weatherSummary ?? 'Loading the latest weather and mood summary...',
                             style: const TextStyle(fontSize: 15),
                           ),
                           const SizedBox(height: 14),
@@ -383,9 +374,7 @@ class HomePageState extends State<HomePage> {
                                     const SizedBox(height: 6),
                                     Text(
                                       _lastFeelingSuggestion ?? 'Happy',
-                                      style: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold),
+                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                     ),
                                   ],
                                 ),
@@ -396,9 +385,8 @@ class HomePageState extends State<HomePage> {
                                 label: const Text('New entry'),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: const Color(0xFF009688),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                 ),
                               ),
                             ],
@@ -413,8 +401,7 @@ class HomePageState extends State<HomePage> {
                     onRefresh: _refreshDiaries,
                     child: _diaries.isEmpty
                         ? ListView(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 16, horizontal: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                             children: const [
                               Center(
                                 child: Text(
@@ -426,18 +413,15 @@ class HomePageState extends State<HomePage> {
                             ],
                           )
                         : ListView.builder(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 16, horizontal: 12),
+                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                             itemCount: _diaries.length,
                             itemBuilder: (context, index) {
                               final diary = _diaries[index];
-                              final cardColor =
-                                  _moodCardColor(diary['feeling'] as String?);
+                              final cardColor = _moodCardColor(diary['feeling'] as String?);
                               return Card(
                                 margin: const EdgeInsets.only(bottom: 14),
                                 color: cardColor,
-                                shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 elevation: 4,
                                 child: ListTile(
                                   contentPadding: const EdgeInsets.all(16),
@@ -445,39 +429,31 @@ class HomePageState extends State<HomePage> {
                                     radius: 28,
                                     backgroundColor: Colors.white,
                                     child: ClipOval(
-                                      child: _moodAvatar(
-                                          diary['feeling'] as String?),
+                                      child: _moodAvatar(diary['feeling'] as String?),
                                     ),
                                   ),
                                   title: Text(
                                     diary['feeling'] ?? '',
                                     style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18,
-                                        color: Colors.black),
+                                        fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
                                   ),
                                   subtitle: Padding(
                                     padding: const EdgeInsets.only(top: 8.0),
                                     child: Text(
                                       '${diary['description'] ?? ''}\n\n${diary['createdAt'] ?? ''}',
-                                      style: const TextStyle(
-                                          color: Colors.black, height: 1.4),
+                                      style: const TextStyle(color: Colors.black, height: 1.4),
                                     ),
                                   ),
                                   trailing: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
-                                        icon: const Icon(Icons.edit,
-                                            color: Colors.teal),
-                                        onPressed: () =>
-                                            _showForm(diary['id'] as int),
+                                        icon: const Icon(Icons.edit, color: Colors.teal),
+                                        onPressed: () => _showForm(diary['id'] as int),
                                       ),
                                       IconButton(
-                                        icon: const Icon(Icons.delete,
-                                            color: Colors.redAccent),
-                                        onPressed: () =>
-                                            _deleteDiary(diary['id'] as int),
+                                        icon: const Icon(Icons.delete, color: Colors.redAccent),
+                                        onPressed: () => _deleteDiary(diary['id'] as int),
                                       ),
                                     ],
                                   ),
@@ -491,6 +467,7 @@ class HomePageState extends State<HomePage> {
             ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.teal,
+        foregroundColor: Colors.white,
         child: const Icon(Icons.add),
         onPressed: () => _showForm(null),
       ),
@@ -498,6 +475,9 @@ class HomePageState extends State<HomePage> {
   }
 }
 
+// =========================================================================
+// DIARY FORM PAGE: DUAL INPUT MODE + VISUALIZER + ACCURACY + AI LAYER
+// =========================================================================
 class DiaryFormPage extends StatefulWidget {
   const DiaryFormPage({
     Key? key,
@@ -524,20 +504,119 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
   late final TextEditingController _descriptionController;
   bool _isSaving = false;
 
+  // Ciri STT & AI
+  final SpeechToText _speechToText = SpeechToText();
+  bool _speechEnabled = false;
+  bool _isListening = false;
+  double _confidence = 1.0;
+  String _sentimentReport = "Tiada analisis dilakukan lagi.";
+  
+  Timer? _waveTimer;
+  List<double> _waveHeights = List.generate(6, (_) => 5.0);
+  final Random _random = Random();
+
   @override
   void initState() {
     super.initState();
-    _feelingController =
-        TextEditingController(text: widget.initialFeeling ?? '');
-    _descriptionController =
-        TextEditingController(text: widget.initialDescription ?? '');
+    _feelingController = TextEditingController(text: widget.initialFeeling ?? '');
+    _descriptionController = TextEditingController(text: widget.initialDescription ?? '');
+    _initSpeech();
+    if (_descriptionController.text.isNotEmpty) {
+      _analyzeSentiment(_descriptionController.text);
+    }
   }
 
-  @override
-  void dispose() {
-    _feelingController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
+  void _initSpeech() async {
+    try {
+      var status = await Permission.microphone.status;
+      if (status.isDenied) {
+        status = await Permission.microphone.request();
+      }
+      _speechEnabled = await _speechToText.initialize(
+        onError: (val) => debugPrint('Speech Error: $val'),
+        onStatus: (val) => debugPrint('Speech Status: $val'),
+      );
+      setState(() {});
+    } catch (e) {
+      debugPrint('Speech Init Failed: $e');
+    }
+  }
+
+  void _startListening(TextEditingController targetController) async {
+    if (_speechEnabled && !_isListening) {
+      _startWaveAnimation();
+      setState(() {
+        _isListening = true;
+      });
+      await _speechToText.listen(
+        onResult: (result) {
+          setState(() {
+            targetController.text = result.recognizedWords;
+            if (result.hasConfidenceRating && result.confidence > 0) {
+              _confidence = result.confidence;
+            }
+          });
+          if (targetController == _descriptionController) {
+            _analyzeSentiment(result.recognizedWords);
+          }
+        },
+      );
+    }
+  }
+
+  void _stopListening() async {
+    if (_isListening) {
+      await _speechToText.stop();
+      _stopWaveAnimation();
+      setState(() {
+        _isListening = false;
+      });
+    }
+  }
+
+  void _startWaveAnimation() {
+    _waveTimer = Timer.periodic(const Duration(milliseconds: 150), (timer) {
+      setState(() {
+        _waveHeights = List.generate(6, (_) => _random.nextDouble() * 35.0 + 5.0);
+      });
+    });
+  }
+
+  void _stopWaveAnimation() {
+    _waveTimer?.cancel();
+    setState(() {
+      _waveHeights = List.generate(6, (_) => 5.0);
+    });
+  }
+
+  void _analyzeSentiment(String text) {
+    if (text.trim().isEmpty) return;
+    final lowerText = text.toLowerCase();
+    int positiveScore = 0;
+    int negativeScore = 0;
+
+    final positiveWords = ['happy', 'good', 'joy', 'gembira', 'best', 'love', 'tenang', 'glad', 'smile', 'aman', 'seronok'];
+    final negativeWords = ['sad', 'bad', 'angry', 'sedih', 'marah', 'down', 'stress', 'unhappy', 'cry', 'benci', 'kecewa'];
+
+    for (var word in positiveWords) {
+      if (lowerText.contains(word)) positiveScore++;
+    }
+    for (var word in negativeWords) {
+      if (lowerText.contains(word)) negativeScore++;
+    }
+
+    setState(() {
+      if (positiveScore > negativeScore) {
+        _sentimentReport = "😊 Sentimen Positif Terkesan (Mood Stabil & Ceria)";
+        if (_feelingController.text.isEmpty) _feelingController.text = "Happy";
+      } else if (negativeScore > positiveScore) {
+        _sentimentReport = "😢 Sentimen Negatif Terkesan (Perlukan Sokongan Emosi)";
+        if (_feelingController.text.isEmpty) _feelingController.text = "Sad";
+      } else {
+        _sentimentReport = "😐 Sentimen Neutral (Emosi Sederhana)";
+        if (_feelingController.text.isEmpty) _feelingController.text = "Neutral";
+      }
+    });
   }
 
   Future<void> _handleSave() async {
@@ -582,16 +661,29 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'Feeling',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Feeling / Mood',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                          ),
+                          IconButton(
+                            icon: Icon(_isListening ? Icons.stop_circle : Icons.mic, 
+                                color: _isListening ? Colors.red : Colors.teal),
+                            onPressed: _isListening 
+                                ? _stopListening 
+                                : () => _startListening(_feelingController),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 6),
                       TextFormField(
                         controller: _feelingController,
                         decoration: const InputDecoration(
-                          hintText: 'e.g. Happy',
+                          hintText: 'e.g. Happy, Sad, Angry',
                           border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.emoji_emotions_outlined),
                         ),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
@@ -601,24 +693,101 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
                         },
                       ),
                       const SizedBox(height: 18),
-                      const Text(
-                        'Description',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Description',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                          ),
+                          IconButton(
+                            icon: Icon(_isListening ? Icons.stop_circle : Icons.mic, 
+                                color: _isListening ? Colors.red : Colors.teal),
+                            onPressed: _isListening 
+                                ? _stopListening 
+                                : () => _startListening(_descriptionController),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 6),
                       TextFormField(
                         controller: _descriptionController,
                         decoration: const InputDecoration(
-                          hintText: 'Write something about your day',
+                          hintText: 'Write or speak about your day...',
                           border: OutlineInputBorder(),
+                          alignLabelWithHint: true,
                         ),
-                        maxLines: 6,
+                        maxLines: 5,
+                        onChanged: _analyzeSentiment,
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'Please enter a description';
                           }
                           return null;
                         },
+                      ),
+                      const SizedBox(height: 12),
+                      if (_isListening)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          alignment: Alignment.center,
+                          child: Column(
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: _waveHeights.map((height) {
+                                  return AnimatedContainer(
+                                    duration: const Duration(milliseconds: 150),
+                                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                                    width: 6,
+                                    height: height,
+                                    decoration: BoxDecoration(
+                                      color: Colors.teal.shade400,
+                                      borderRadius: BorderRadius.circular(3),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                              const SizedBox(height: 6),
+                              const Text("Mendengar suara anda...", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      if (_descriptionController.text.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.assignment_turned_in_outlined, size: 16, color: Colors.grey),
+                              const SizedBox(width: 6),
+                              Text(
+                                "Tahap Ketepatan Suara: ${(_confidence * 100).toStringAsFixed(1)}%",
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const Divider(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "📊 Real-time AI Sentiment Tracker:",
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.teal),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _sentimentReport,
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -628,20 +797,17 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
                   onPressed: _isSaving ? null : _handleSave,
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
+                    backgroundColor: const Color(0xFF009688),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   child: _isSaving
                       ? const SizedBox(
                           height: 18,
                           width: 18,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
-                          ),
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                         )
-                      : Text(widget.submitLabel),
+                      : Text(widget.submitLabel, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
