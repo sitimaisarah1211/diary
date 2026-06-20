@@ -77,7 +77,7 @@ class _LoginPageState extends State<LoginPage> {
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
+                    color: isDark ? Colors.white : Colors.black87, // Teks putih jika dark mode
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -86,7 +86,7 @@ class _LoginPageState extends State<LoginPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    color: isDark ? Colors.white60 : Colors.black54,
+                    color: isDark ? Colors.white70 : Colors.black54, // Teks cerah jika dark mode
                   ),
                 ),
                 const SizedBox(height: 32),

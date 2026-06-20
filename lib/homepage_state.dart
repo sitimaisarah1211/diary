@@ -125,7 +125,6 @@ class HomePageState extends State<HomePage> {
             int newId;
             if (id == null) {
               newId = await SQLHelper.createDiary(feeling, description);
-              // PENTING: Panggil Undo SnackBar di bawah sejurus selepas berjaya bina diari baru
               _showUndoSnackBar(newId, feeling, description, isCreation: true);
             } else {
               await SQLHelper.updateDiary(id, feeling, description);
@@ -138,13 +137,14 @@ class HomePageState extends State<HomePage> {
     _refreshDiaries();
   }
 
+  // Dipendekkan kepada 3 saat mengikut kehendak Maisarah
   void _showUndoSnackBar(int id, String feeling, String description, {required bool isCreation}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(isCreation ? 'Diary created successfully!' : 'Diary entry deleted.'),
-        duration: const Duration(seconds: 3), // Keluar selama 3 saat sahaja ikut kehendak rubrik
+        duration: const Duration(seconds: 3), // Keluar kejap selama 3 saat sahaja
         action: SnackBarAction(
           label: 'UNDO',
           textColor: Colors.tealAccent,
@@ -161,14 +161,37 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  Future<void> _deleteDiary(int id) async {
+  // Pop-up pengesahan Yes/No sebelum padam data diari
+  Future<void> _confirmDeleteDiary(int id) async {
     final existingDiary = _diaries.firstWhere((element) => element['id'] == id);
     final backupFeeling = existingDiary['feeling'] ?? '';
     final backupDescription = existingDiary['description'] ?? '';
 
-    await SQLHelper.deleteDiary(id);
-    _refreshDiaries();
-    _showUndoSnackBar(id, backupFeeling, backupDescription, isCreation: false);
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Delete'),
+          content: const Text('Are you sure you want to delete this diary?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false), // Klik No
+              child: const Text('No', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true), // Klik Yes
+              child: const Text('Yes', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirm == true) {
+      await SQLHelper.deleteDiary(id);
+      _refreshDiaries();
+      _showUndoSnackBar(id, backupFeeling, backupDescription, isCreation: false);
+    }
   }
 
   void _handleLogout() {
@@ -214,11 +237,9 @@ class HomePageState extends State<HomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(_weatherSummary ?? 'Loading weather...', 
-                              style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                          Text(_weatherSummary ?? 'Loading weather...'),
                           const SizedBox(height: 10),
-                          Text('Suggested mood: ${_lastFeelingSuggestion ?? "Happy"}', 
-                              style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)),
+                          Text('Suggested mood: ${_lastFeelingSuggestion ?? "Happy"}'),
                         ],
                       ),
                     ),
@@ -255,7 +276,7 @@ class HomePageState extends State<HomePage> {
                                     IconButton(
                                       icon: const Icon(Icons.delete), 
                                       color: tileColor,
-                                      onPressed: () => _deleteDiary(diary['id'])
+                                      onPressed: () => _confirmDeleteDiary(diary['id']) // Panggil fungsi dialog baru
                                     ),
                                   ],
                                 ),
