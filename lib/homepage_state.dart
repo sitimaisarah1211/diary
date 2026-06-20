@@ -137,14 +137,17 @@ class HomePageState extends State<HomePage> {
     _refreshDiaries();
   }
 
-  // Dipendekkan kepada 3 saat mengikut kehendak Maisarah
+  // DIBAIKI: Dipaksa bersihkan SnackBar lama dan tetapkan masa tegar 2 saat
   void _showUndoSnackBar(int id, String feeling, String description, {required bool isCreation}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    
+    // Padam sebarang SnackBar bertindih yang membuatkannya rasa lama
+    ScaffoldMessenger.of(context).clearSnackBars(); 
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(isCreation ? 'Diary created successfully!' : 'Diary entry deleted.'),
-        duration: const Duration(seconds: 3), // Keluar kejap selama 3 saat sahaja
+        duration: const Duration(seconds: 2), // Tepat 2 saat sahaja!
         action: SnackBarAction(
           label: 'UNDO',
           textColor: Colors.tealAccent,
@@ -161,7 +164,6 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  // Pop-up pengesahan Yes/No sebelum padam data diari
   Future<void> _confirmDeleteDiary(int id) async {
     final existingDiary = _diaries.firstWhere((element) => element['id'] == id);
     final backupFeeling = existingDiary['feeling'] ?? '';
@@ -175,11 +177,11 @@ class HomePageState extends State<HomePage> {
           content: const Text('Are you sure you want to delete this diary?'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false), // Klik No
+              onPressed: () => Navigator.of(context).pop(false),
               child: const Text('No', style: TextStyle(color: Colors.grey)),
             ),
             TextButton(
-              onPressed: () => Navigator.of(context).pop(true), // Klik Yes
+              onPressed: () => Navigator.of(context).pop(true),
               child: const Text('Yes', style: TextStyle(color: Colors.red)),
             ),
           ],
@@ -237,9 +239,11 @@ class HomePageState extends State<HomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(_weatherSummary ?? 'Loading weather...'),
+                          Text(_weatherSummary ?? 'Loading weather...',
+                              style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                           const SizedBox(height: 10),
-                          Text('Suggested mood: ${_lastFeelingSuggestion ?? "Happy"}'),
+                          Text('Suggested mood: ${_lastFeelingSuggestion ?? "Happy"}',
+                              style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)),
                         ],
                       ),
                     ),
@@ -276,7 +280,7 @@ class HomePageState extends State<HomePage> {
                                     IconButton(
                                       icon: const Icon(Icons.delete), 
                                       color: tileColor,
-                                      onPressed: () => _confirmDeleteDiary(diary['id']) // Panggil fungsi dialog baru
+                                      onPressed: () => _confirmDeleteDiary(diary['id'])
                                     ),
                                   ],
                                 ),
@@ -367,6 +371,7 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
     } catch (_) {}
   }
 
+  // DIBAIKI: Ditambah ListenMode.dictation & durasi panjang supaya suara tak terputus
   void _listenToDescription() async {
     if (!_speechEnabled) _initSpeechEngine();
 
@@ -379,6 +384,9 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
     if (!_isListeningDesc) {
       setState(() => _isListeningDesc = true);
       await _speechToText.listen(
+        listenMode: ListenMode.dictation, // Mod imlak tanpa had masa berhenti
+        pauseFor: const Duration(seconds: 10), // Boleh berhenti bercakap sehingga 10 saat sebelum tamat
+        cancelOnError: false,
         onResult: (result) {
           setState(() {
             _descriptionController.text = result.recognizedWords;
@@ -490,18 +498,16 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _descriptionController,
-                          maxLines: 4,
+                          maxLines: null, // DIBAIKI: Menghilangkan sekatan baris input teks supaya boleh taip tanpa had panjang
+                          keyboardType: TextInputType.multiline, // Mengaktifkan butang Enter untuk taip baris baru
                           style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                           decoration: InputDecoration(
                             hintText: 'Type or use voice to speak your thoughts...',
                             hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black38),
                             border: const OutlineInputBorder(),
-                            suffixIcon: Padding(
-                              padding: const EdgeInsets.only(bottom: 50),
-                              child: IconButton(
-                                icon: Icon(_isListeningDesc ? Icons.stop : Icons.mic, color: _isListeningDesc ? Colors.red : (isDark ? Colors.tealAccent : Colors.teal)),
-                                onPressed: _listenToDescription,
-                              ),
+                            suffixIcon: IconButton(
+                              icon: Icon(_isListeningDesc ? Icons.stop : Icons.mic, color: _isListeningDesc ? Colors.red : (isDark ? Colors.tealAccent : Colors.teal)),
+                              onPressed: _listenToDescription,
                             ),
                           ),
                           onChanged: _analyzeSentiment,
