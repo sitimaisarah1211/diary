@@ -71,12 +71,26 @@ class HomePageState extends State<HomePage> {
     });
   }
 
-  Color _moodCardColor(String? feeling) {
+  Color _moodCardColor(String? feeling, bool isDark) {
     final mood = feeling?.toLowerCase() ?? '';
-    if (mood.contains('happy')) return const Color(0xFF64FFDA);
-    if (mood.contains('sad')) return const Color(0xFFB2EBF2);
-    if (mood.contains('angry')) return const Color(0xFFFFCDD2);
-    return const Color(0xFF80DEEA);
+    if (isDark) {
+      if (mood.contains('happy')) return const Color(0xFF004D40);
+      if (mood.contains('sad')) return const Color(0xFF006064);
+      if (mood.contains('angry')) return const Color(0xFFB71C1C);
+      return const Color(0xFF37474F);
+    } else {
+      if (mood.contains('happy')) return const Color(0xFF64FFDA);
+      if (mood.contains('sad')) return const Color(0xFFB2EBF2);
+      if (mood.contains('angry')) return const Color(0xFFFFCDD2);
+      return const Color(0xFF80DEEA);
+    }
+  }
+
+  Color _textColorForMood(String? feeling, bool isDark) {
+    if (isDark) return Colors.white;
+    final mood = feeling?.toLowerCase() ?? '';
+    if (mood.contains('angry')) return Colors.red.shade900;
+    return Colors.black87;
   }
 
   Widget _moodAvatar(String? feeling) {
@@ -102,13 +116,17 @@ class HomePageState extends State<HomePage> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => DiaryFormPage(
+          isDarkMode: widget.isDarkMode,
           title: title,
           initialFeeling: initialFeeling,
           initialDescription: initialDescription,
           submitLabel: submitLabel,
           onSave: (feeling, description) async {
+            int newId;
             if (id == null) {
-              await SQLHelper.createDiary(feeling, description);
+              newId = await SQLHelper.createDiary(feeling, description);
+              // PENTING: Panggil Undo SnackBar di bawah sejurus selepas berjaya bina diari baru
+              _showUndoSnackBar(newId, feeling, description, isCreation: true);
             } else {
               await SQLHelper.updateDiary(id, feeling, description);
             }
@@ -120,6 +138,29 @@ class HomePageState extends State<HomePage> {
     _refreshDiaries();
   }
 
+  void _showUndoSnackBar(int id, String feeling, String description, {required bool isCreation}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(isCreation ? 'Diary created successfully!' : 'Diary entry deleted.'),
+        duration: const Duration(seconds: 3), // Keluar selama 3 saat sahaja ikut kehendak rubrik
+        action: SnackBarAction(
+          label: 'UNDO',
+          textColor: Colors.tealAccent,
+          onPressed: () async {
+            if (isCreation) {
+              await SQLHelper.deleteDiary(id);
+            } else {
+              await SQLHelper.createDiary(feeling, description);
+            }
+            _refreshDiaries();
+          },
+        ),
+      ),
+    );
+  }
+
   Future<void> _deleteDiary(int id) async {
     final existingDiary = _diaries.firstWhere((element) => element['id'] == id);
     final backupFeeling = existingDiary['feeling'] ?? '';
@@ -127,35 +168,36 @@ class HomePageState extends State<HomePage> {
 
     await SQLHelper.deleteDiary(id);
     _refreshDiaries();
+    _showUndoSnackBar(id, backupFeeling, backupDescription, isCreation: false);
+  }
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Diary entry deleted.'),
-          duration: const Duration(seconds: 3),
-          action: SnackBarAction(
-            label: 'UNDO',
-            textColor: Colors.tealAccent,
-            onPressed: () async {
-              await SQLHelper.createDiary(backupFeeling, backupDescription);
-              _refreshDiaries();
-            },
-          ),
+  void _handleLogout() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => LoginPage(
+          isDarkMode: widget.isDarkMode,
+          onToggleTheme: widget.onToggleTheme,
         ),
-      );
-    }
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = widget.isDarkMode;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Siti Maisarah Diary'),
         backgroundColor: const Color(0xFF009688),
         actions: [
           IconButton(
-            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
             onPressed: widget.onToggleTheme,
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            tooltip: 'Logout',
+            onPressed: _handleLogout,
           ),
         ],
       ),
@@ -172,47 +214,62 @@ class HomePageState extends State<HomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(_weatherSummary ?? 'Loading weather...'),
+                          Text(_weatherSummary ?? 'Loading weather...', 
+                              style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
                           const SizedBox(height: 10),
-                          Text('Suggested mood: ${_lastFeelingSuggestion ?? "Happy"}'),
+                          Text('Suggested mood: ${_lastFeelingSuggestion ?? "Happy"}', 
+                              style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)),
                         ],
                       ),
                     ),
                   ),
                 ),
                 Expanded(
-                  child: ListView.builder(
-                    itemCount: _diaries.length,
-                    itemBuilder: (context, index) {
-                      final diary = _diaries[index];
-                      return Card(
-                        color: _moodCardColor(diary['feeling']),
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: Colors.white,
-                            child: _moodAvatar(diary['feeling']),
-                          ),
-                          title: Text(diary['feeling'] ?? ''),
-                          subtitle: Text(diary['description'] ?? ''),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(icon: const Icon(Icons.edit), onPressed: () => _showForm(diary['id'])),
-                              IconButton(icon: const Icon(Icons.delete), onPressed: () => _deleteDiary(diary['id'])),
-                            ],
-                          ),
+                  child: _diaries.isEmpty
+                      ? Center(child: Text('No diary entries found.', style: TextStyle(color: isDark ? Colors.white60 : Colors.black54)))
+                      : ListView.builder(
+                          itemCount: _diaries.length,
+                          itemBuilder: (context, index) {
+                            final diary = _diaries[index];
+                            final tileColor = _textColorForMood(diary['feeling'], isDark);
+                            return Card(
+                              color: _moodCardColor(diary['feeling'], isDark),
+                              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: isDark ? Colors.grey[800] : Colors.white,
+                                  child: _moodAvatar(diary['feeling']),
+                                ),
+                                title: Text(diary['feeling'] ?? '', 
+                                    style: TextStyle(fontWeight: FontWeight.bold, color: tileColor)),
+                                subtitle: Text(diary['description'] ?? '', 
+                                    style: TextStyle(color: tileColor.withOpacity(0.9))),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit), 
+                                      color: tileColor,
+                                      onPressed: () => _showForm(diary['id'])
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete), 
+                                      color: tileColor,
+                                      onPressed: () => _deleteDiary(diary['id'])
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
                 ),
               ],
             ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.teal,
         onPressed: () => _showForm(null),
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -222,6 +279,7 @@ class HomePageState extends State<HomePage> {
 // DIARY FORM PAGE (DROPDOWN + INTEGRATED VOICE INPUT)
 // =========================================================================
 class DiaryFormPage extends StatefulWidget {
+  final bool isDarkMode;
   final String title;
   final String? initialFeeling;
   final String? initialDescription;
@@ -230,6 +288,7 @@ class DiaryFormPage extends StatefulWidget {
 
   const DiaryFormPage({
     super.key,
+    required this.isDarkMode,
     required this.title,
     this.initialFeeling,
     this.initialDescription,
@@ -342,6 +401,9 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = widget.isDarkMode;
+    final labelStyle = TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
@@ -363,10 +425,12 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text("Select Mood", style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text("Select Mood", style: labelStyle),
                         const SizedBox(height: 8),
                         DropdownButtonFormField<String>(
                           value: _selectedMood,
+                          dropdownColor: isDark ? Colors.grey[850] : Colors.white,
+                          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                           items: _moodOptions.map((String mood) {
                             return DropdownMenuItem<String>(
                               value: mood,
@@ -379,38 +443,42 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
                               _isCustomMood = (newValue == 'Other');
                             });
                           },
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.emoji_emotions_outlined),
+                          decoration: InputDecoration(
+                            border: const OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.emoji_emotions_outlined, color: isDark ? Colors.tealAccent : Colors.teal),
                           ),
                         ),
                         if (_isCustomMood) ...[
                           const SizedBox(height: 16),
-                          const Text("Enter Custom Mood", style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text("Enter Custom Mood", style: labelStyle),
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: _customFeelingController,
-                            decoration: const InputDecoration(
+                            style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                            decoration: InputDecoration(
                               hintText: 'Type your custom feeling here...',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.edit_note_rounded),
+                              hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black38),
+                              border: const OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.edit_note_rounded, color: isDark ? Colors.tealAccent : Colors.teal),
                             ),
                             validator: (v) => (_isCustomMood && v!.isEmpty) ? 'Please type your custom feeling' : null,
                           ),
                         ],
                         const SizedBox(height: 18),
-                        const Text("Description", style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text("Description", style: labelStyle),
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _descriptionController,
                           maxLines: 4,
+                          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                           decoration: InputDecoration(
                             hintText: 'Type or use voice to speak your thoughts...',
+                            hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.black38),
                             border: const OutlineInputBorder(),
                             suffixIcon: Padding(
                               padding: const EdgeInsets.only(bottom: 50),
                               child: IconButton(
-                                icon: Icon(_isListeningDesc ? Icons.stop : Icons.mic, color: _isListeningDesc ? Colors.red : Colors.teal),
+                                icon: Icon(_isListeningDesc ? Icons.stop : Icons.mic, color: _isListeningDesc ? Colors.red : (isDark ? Colors.tealAccent : Colors.teal)),
                                 onPressed: _listenToDescription,
                               ),
                             ),
@@ -424,18 +492,18 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
                 ),
                 const SizedBox(height: 14),
                 Card(
-                  color: Colors.teal.shade50,
+                  color: isDark ? const Color(0xFF00332C) : Colors.teal.shade50,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   child: Padding(
                     padding: const EdgeInsets.all(14),
                     child: Row(
                       children: [
-                        const Icon(Icons.analytics_outlined, size: 18, color: Colors.teal),
+                        Icon(Icons.analytics_outlined, size: 18, color: isDark ? Colors.tealAccent : Colors.teal),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Real-time AI Sentiment Tracker:\n$_sentimentReport',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: isDark ? Colors.white : Colors.black87),
                           ),
                         ),
                       ],

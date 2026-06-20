@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'homepage.dart'; // Import fail utama anda
+import 'homepage.dart'; 
 
 class LoginPage extends StatefulWidget {
   final bool isDarkMode;
@@ -17,13 +17,12 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _usernameController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   void _handleLogin() {
     if (_formKey.currentState!.validate()) {
-      // Log masuk simulasi tradisional (Boleh diubah mengikut kesesuaian)
-      if (_usernameController.text == 'maisarah' && _passwordController.text == '1234') {
+      if (_usernameController.text == 'admin' && _passwordController.text == '1234') {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => HomePage(
@@ -35,7 +34,7 @@ class _LoginPageState extends State<LoginPage> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Username atau Password salah! (Guna: maisarah / 1234)'),
+            content: Text('Invalid username or password! (Hint: admin / 1234)'),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -45,7 +44,18 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = widget.isDarkMode;
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Sign In'),
+        backgroundColor: const Color(0xFF009688),
+        actions: [
+          IconButton(
+            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+            onPressed: widget.onToggleTheme,
+          ),
+        ],
+      ),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -55,38 +65,64 @@ class _LoginPageState extends State<LoginPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.lock_person_rounded, size: 80, color: Color(0xFF009688)),
-                const SizedBox(height: 16),
-                const Text(
-                  'Siti Maisarah Diary',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF009688)),
+                Icon(
+                  Icons.lock_person_rounded,
+                  size: 80,
+                  color: isDark ? Colors.tealAccent : const Color(0xFF009688),
                 ),
-                const Text(
-                  'Sila log masuk untuk membaca diari anda',
+                const SizedBox(height: 16),
+                Text(
+                  'Welcome Back',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Please sign in to access your personal journal',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.white60 : Colors.black54,
+                  ),
                 ),
                 const SizedBox(height: 32),
                 TextFormField(
                   controller: _usernameController,
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                  decoration: InputDecoration(
                     labelText: 'Username',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.person),
+                    labelStyle: TextStyle(color: isDark ? Colors.tealAccent : const Color(0xFF009688)),
+                    prefixIcon: const Icon(Icons.person),
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (v) => v!.isEmpty ? 'Sila isi username' : null,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter your username';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                  decoration: InputDecoration(
                     labelText: 'Password',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.lock),
+                    labelStyle: TextStyle(color: isDark ? Colors.tealAccent : const Color(0xFF009688)),
+                    prefixIcon: const Icon(Icons.lock),
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (v) => v!.isEmpty ? 'Sila isi password' : null,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your password';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
@@ -95,9 +131,14 @@ class _LoginPageState extends State<LoginPage> {
                     backgroundColor: const Color(0xFF009688),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                  child: const Text('Log Masuk', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Login',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),

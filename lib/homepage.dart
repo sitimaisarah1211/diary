@@ -1,14 +1,12 @@
-import 'package:flutter/material.dart';
-import 'dart:async';
-import 'dart:math';
 import 'dart:convert';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-// Pastikan import sql_helper.dart ini sepadan dengan nama fail database anda
-import 'sql_helper.dart'; 
+import 'sql_helper.dart';
+import 'login_page.dart'; // Diperlukan untuk navigasi logout
 
 part 'homepage_state.dart';
 
@@ -17,11 +15,11 @@ class HomePage extends StatefulWidget {
   final VoidCallback onToggleTheme;
 
   const HomePage({
-    Key? key,
+    super.key, // Menggunakan super parameter untuk hilangkan ralat linter biru
     required this.isDarkMode,
     required this.onToggleTheme,
-  }) : super(key: key);
+  });
 
   @override
-  HomePageState createState() => HomePageState();
+  State<HomePage> createState() => HomePageState();
 }
