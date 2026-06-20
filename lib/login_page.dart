@@ -44,8 +44,11 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Membaca keadaan mod gelap terkini daripada parameter widget induk
     final isDark = widget.isDarkMode;
+    
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF212121) : Colors.grey[100],
       appBar: AppBar(
         title: const Text('Sign In'),
         backgroundColor: const Color(0xFF009688),
@@ -71,22 +74,24 @@ class _LoginPageState extends State<LoginPage> {
                   color: isDark ? Colors.tealAccent : const Color(0xFF009688),
                 ),
                 const SizedBox(height: 16),
+                // BARU: Dipaksa bertukar warna putih bersih jika dalam Dark Mode!
                 Text(
                   'Welcome Back',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87, // Teks putih jika dark mode
+                    color: isDark ? Colors.white : Colors.black87, 
                   ),
                 ),
                 const SizedBox(height: 8),
+                // BARU: Ayat bawah bertukar ke kelabu cerah kontras tinggi jika dalam Dark Mode!
                 Text(
                   'Please sign in to access your personal journal',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    color: isDark ? Colors.white70 : Colors.black54, // Teks cerah jika dark mode
+                    color: isDark ? Colors.white70 : Colors.black54, 
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -96,8 +101,13 @@ class _LoginPageState extends State<LoginPage> {
                   decoration: InputDecoration(
                     labelText: 'Username',
                     labelStyle: TextStyle(color: isDark ? Colors.tealAccent : const Color(0xFF009688)),
-                    prefixIcon: const Icon(Icons.person),
-                    border: const OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.person, color: isDark ? Colors.tealAccent : const Color(0xFF009688)),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: isDark ? Colors.white38 : Colors.grey),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: isDark ? Colors.tealAccent : const Color(0xFF009688), width: 2),
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -114,8 +124,13 @@ class _LoginPageState extends State<LoginPage> {
                   decoration: InputDecoration(
                     labelText: 'Password',
                     labelStyle: TextStyle(color: isDark ? Colors.tealAccent : const Color(0xFF009688)),
-                    prefixIcon: const Icon(Icons.lock),
-                    border: const OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.lock, color: isDark ? Colors.tealAccent : const Color(0xFF009688)),
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: isDark ? Colors.white38 : Colors.grey),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: isDark ? Colors.tealAccent : const Color(0xFF009688), width: 2),
+                    ),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {

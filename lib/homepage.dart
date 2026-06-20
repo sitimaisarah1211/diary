@@ -5,8 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import 'sql_helper.dart';
-import 'login_page.dart'; // Diperlukan untuk navigasi logout
+import 'sql_helper.dart'; 
+import 'login_page.dart';
 
 part 'homepage_state.dart';
 
@@ -15,7 +15,7 @@ class HomePage extends StatefulWidget {
   final VoidCallback onToggleTheme;
 
   const HomePage({
-    super.key, // Menggunakan super parameter untuk hilangkan ralat linter biru
+    super.key,
     required this.isDarkMode,
     required this.onToggleTheme,
   });

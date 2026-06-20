@@ -116,7 +116,7 @@ class HomePageState extends State<HomePage> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => DiaryFormPage(
-          isDarkMode: widget.isDarkMode,
+          isDarkMode: Theme.of(context).brightness == Brightness.dark,
           title: title,
           initialFeeling: initialFeeling,
           initialDescription: initialDescription,
@@ -137,17 +137,13 @@ class HomePageState extends State<HomePage> {
     _refreshDiaries();
   }
 
-  // DIBAIKI: Dipaksa bersihkan SnackBar lama dan tetapkan masa tegar 2 saat
   void _showUndoSnackBar(int id, String feeling, String description, {required bool isCreation}) {
     if (!mounted) return;
-    
-    // Padam sebarang SnackBar bertindih yang membuatkannya rasa lama
     ScaffoldMessenger.of(context).clearSnackBars(); 
-    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(isCreation ? 'Diary created successfully!' : 'Diary entry deleted.'),
-        duration: const Duration(seconds: 2), // Tepat 2 saat sahaja!
+        duration: const Duration(seconds: 2), 
         action: SnackBarAction(
           label: 'UNDO',
           textColor: Colors.tealAccent,
@@ -200,7 +196,7 @@ class HomePageState extends State<HomePage> {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => LoginPage(
-          isDarkMode: widget.isDarkMode,
+          isDarkMode: Theme.of(context).brightness == Brightness.dark,
           onToggleTheme: widget.onToggleTheme,
         ),
       ),
@@ -209,15 +205,20 @@ class HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDarkMode;
+    // SINI PEMBETULAN UTAMA: Membaca mod gelap global secara dinamik
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF212121) : Colors.grey[100],
       appBar: AppBar(
         title: const Text('Siti Maisarah Diary'),
         backgroundColor: const Color(0xFF009688),
         actions: [
           IconButton(
             icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-            onPressed: widget.onToggleTheme,
+            onPressed: () {
+              widget.onToggleTheme(); 
+            }, 
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
@@ -233,17 +234,30 @@ class HomePageState extends State<HomePage> {
                 Padding(
                   padding: const EdgeInsets.all(12),
                   child: Card(
+                    color: isDark ? const Color(0xFF004D40) : Colors.white, 
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(_weatherSummary ?? 'Loading weather...',
-                              style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+                          Text(
+                            _weatherSummary ?? 'Loading weather...',
+                            style: TextStyle(
+                              color: isDark ? Colors.white : Colors.black87,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
                           const SizedBox(height: 10),
-                          Text('Suggested mood: ${_lastFeelingSuggestion ?? "Happy"}',
-                              style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)),
+                          Text(
+                            'Suggested mood: ${_lastFeelingSuggestion ?? "Happy"}',
+                            style: TextStyle(
+                              color: isDark ? const Color(0xFFFFF176) : Colors.teal.shade900,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -300,9 +314,7 @@ class HomePageState extends State<HomePage> {
   }
 }
 
-// =========================================================================
-// DIARY FORM PAGE (DROPDOWN + INTEGRATED VOICE INPUT)
-// =========================================================================
+// Kekalkan kelas DiaryFormPage di bahagian bawah fail ini
 class DiaryFormPage extends StatefulWidget {
   final bool isDarkMode;
   final String title;
@@ -371,7 +383,6 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
     } catch (_) {}
   }
 
-  // DIBAIKI: Ditambah ListenMode.dictation & durasi panjang supaya suara tak terputus
   void _listenToDescription() async {
     if (!_speechEnabled) _initSpeechEngine();
 
@@ -384,8 +395,8 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
     if (!_isListeningDesc) {
       setState(() => _isListeningDesc = true);
       await _speechToText.listen(
-        listenMode: ListenMode.dictation, // Mod imlak tanpa had masa berhenti
-        pauseFor: const Duration(seconds: 10), // Boleh berhenti bercakap sehingga 10 saat sebelum tamat
+        listenMode: ListenMode.dictation,
+        pauseFor: const Duration(seconds: 10),
         cancelOnError: false,
         onResult: (result) {
           setState(() {
@@ -430,10 +441,11 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = widget.isDarkMode;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final labelStyle = TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87);
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF212121) : Colors.grey[100],
       appBar: AppBar(
         title: Text(widget.title),
         backgroundColor: const Color(0xFF009688),
@@ -447,6 +459,7 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Card(
+                  color: isDark ? Colors.grey[850] : Colors.white,
                   elevation: 2,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   child: Padding(
@@ -498,8 +511,8 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _descriptionController,
-                          maxLines: null, // DIBAIKI: Menghilangkan sekatan baris input teks supaya boleh taip tanpa had panjang
-                          keyboardType: TextInputType.multiline, // Mengaktifkan butang Enter untuk taip baris baru
+                          maxLines: null,
+                          keyboardType: TextInputType.multiline,
                           style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                           decoration: InputDecoration(
                             hintText: 'Type or use voice to speak your thoughts...',
