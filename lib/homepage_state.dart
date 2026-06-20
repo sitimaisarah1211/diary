@@ -3,11 +3,8 @@ part of 'homepage.dart';
 class HomePageState extends State<HomePage> {
   List<Map<String, dynamic>> _diaries = [];
   bool _isLoading = true;
-  bool _isWeatherLoading = true;
   String? _weatherSummary;
   String? _lastFeelingSuggestion;
-  Map<String, dynamic>? _lastDeletedDiary;
-  int? _lastCreatedDiaryId;
 
   @override
   void initState() {
@@ -15,11 +12,6 @@ class HomePageState extends State<HomePage> {
     _refreshDiaries();
     _loadWeather();
     _loadPreferences();
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
   }
 
   Future<void> _refreshDiaries() async {
@@ -31,10 +23,6 @@ class HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadWeather() async {
-    setState(() {
-      _isWeatherLoading = true;
-    });
-
     try {
       final response = await http.get(Uri.parse(
           'https://api.open-meteo.com/v1/forecast?latitude=3.1390&longitude=101.6869&current_weather=true'));
@@ -45,8 +33,7 @@ class HomePageState extends State<HomePage> {
           final temperature = (current['temperature'] as num).toDouble();
           final weatherCode = current['weathercode'] as int;
           setState(() {
-            _weatherSummary =
-                '${temperature.toStringAsFixed(0)}°C • ${_weatherDescription(weatherCode)}';
+            _weatherSummary = '${temperature.toStringAsFixed(0)}°C • ${_weatherDescription(weatherCode)}';
           });
         }
       }
@@ -55,10 +42,6 @@ class HomePageState extends State<HomePage> {
         _weatherSummary = 'Weather currently unavailable';
       });
     }
-
-    setState(() {
-      _isWeatherLoading = false;
-    });
   }
 
   String _weatherDescription(int code) {
@@ -68,17 +51,15 @@ class HomePageState extends State<HomePage> {
     if (code <= 57) return 'Drizzle';
     if (code <= 67) return 'Rainy';
     if (code <= 77) return 'Snowy';
-    if (code <= 86) return 'Freezing rain';
     return 'Windy';
   }
 
   Future<void> _loadPreferences() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _lastFeelingSuggestion =
-          prefs.getString('lastFeeling')?.trim().isNotEmpty == true
-              ? prefs.getString('lastFeeling')
-              : 'Happy';
+      _lastFeelingSuggestion = prefs.getString('lastFeeling')?.trim().isNotEmpty == true
+          ? prefs.getString('lastFeeling')
+          : 'Happy';
     });
   }
 
@@ -92,69 +73,18 @@ class HomePageState extends State<HomePage> {
 
   Color _moodCardColor(String? feeling) {
     final mood = feeling?.toLowerCase() ?? '';
-    if (mood.contains('happy') || mood.contains('joy') || mood.contains('glad') || mood.contains('gembira')) {
-      return const Color(0xFF64FFDA);
-    }
-    if (mood.contains('sad') || mood.contains('down') || mood.contains('unhappy') || mood.contains('sedih')) {
-      return const Color(0xFFB2EBF2);
-    }
-    if (mood.contains('angry') || mood.contains('mad') || mood.contains('upset') || mood.contains('marah')) {
-      return const Color(0xFFFFCDD2);
-    }
+    if (mood.contains('happy')) return const Color(0xFF64FFDA);
+    if (mood.contains('sad')) return const Color(0xFFB2EBF2);
+    if (mood.contains('angry')) return const Color(0xFFFFCDD2);
     return const Color(0xFF80DEEA);
   }
 
-  String _moodGifUrl(String? feeling) {
-    final mood = feeling?.toLowerCase() ?? '';
-    if (mood.contains('angry') || mood.contains('mad') || mood.contains('upset') || mood.contains('marah')) {
-      return 'assets/images/angry.gif';
-    }
-    if (mood.contains('sad') || mood.contains('down') || mood.contains('unhappy') || mood.contains('sedih')) {
-      return 'assets/images/sad.gif';
-    }
-    if (mood.contains('happy') || mood.contains('joy') || mood.contains('glad') || mood.contains('gembira')) {
-      return 'assets/images/happy.gif';
-    }
-    return '';
-  }
-
   Widget _moodAvatar(String? feeling) {
-    final url = _moodGifUrl(feeling);
     final mood = feeling?.toLowerCase() ?? '';
-
-    if (url.startsWith('assets/')) {
-      try {
-        return Image.asset(
-          url,
-          fit: BoxFit.cover,
-          width: 40,
-          height: 40,
-          gaplessPlayback: true,
-          errorBuilder: (context, error, stackTrace) => _fallbackEmoji(mood),
-        );
-      } catch (_) {
-        return _fallbackEmoji(mood);
-      }
-    }
-    return _fallbackEmoji(mood);
-  }
-
-  Widget _fallbackEmoji(String mood) {
-    Color iconColor = Colors.black;
     String emoji = '😊';
-    if (mood.contains('sad') || mood.contains('down') || mood.contains('unhappy') || mood.contains('sedih')) {
-      emoji = '😢';
-      iconColor = Colors.blueGrey;
-    } else if (mood.contains('angry') || mood.contains('mad') || mood.contains('upset') || mood.contains('marah')) {
-      emoji = '😠';
-      iconColor = Colors.redAccent;
-    }
-    return Center(
-      child: Text(
-        emoji,
-        style: TextStyle(fontSize: 24, color: iconColor),
-      ),
-    );
+    if (mood.contains('sad')) emoji = '😢';
+    if (mood.contains('angry')) emoji = '😠';
+    return Center(child: Text(emoji, style: const TextStyle(fontSize: 24)));
   }
 
   void _showForm(int? id) async {
@@ -178,136 +108,41 @@ class HomePageState extends State<HomePage> {
           submitLabel: submitLabel,
           onSave: (feeling, description) async {
             if (id == null) {
-              await _createDiaryEntry(feeling, description);
+              await SQLHelper.createDiary(feeling, description);
             } else {
-              await _updateDiaryEntry(id, feeling, description);
+              await SQLHelper.updateDiary(id, feeling, description);
             }
+            await _saveLastFeeling(feeling);
           },
         ),
       ),
     );
-
-    if (mounted) {
-      _refreshDiaries();
-    }
-  }
-
-  Future<void> _createDiaryEntry(String feeling, String description) async {
-    try {
-      final newId = await SQLHelper.createDiary(feeling, description);
-      _lastCreatedDiaryId = newId;
-      await _saveLastFeeling(feeling);
-      _refreshDiaries();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Diary created successfully!'),
-            duration: const Duration(seconds: 2),
-            action: SnackBarAction(
-              label: 'Undo',
-              textColor: Colors.amber,
-              onPressed: () async {
-                if (_lastCreatedDiaryId != null) {
-                  await SQLHelper.deleteDiary(_lastCreatedDiaryId!);
-                  _refreshDiaries();
-                  _lastCreatedDiaryId = null;
-                }
-              },
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating diary: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _updateDiaryEntry(int id, String feeling, String description) async {
-    try {
-      await SQLHelper.updateDiary(id, feeling, description);
-      await _saveLastFeeling(feeling);
-      _refreshDiaries();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Diary updated successfully!')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating diary: $e')),
-        );
-      }
-    }
+    _refreshDiaries();
   }
 
   Future<void> _deleteDiary(int id) async {
-    final diary = _diaries.firstWhere((element) => element['id'] == id);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Confirm delete'),
-          content: const Text('Are you sure you want to delete this diary entry?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('No'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Yes'),
-            ),
-          ],
-        );
-      },
-    );
+    final existingDiary = _diaries.firstWhere((element) => element['id'] == id);
+    final backupFeeling = existingDiary['feeling'] ?? '';
+    final backupDescription = existingDiary['description'] ?? '';
 
-    if (confirmed != true) {
-      return;
-    }
-
-    _lastDeletedDiary = Map<String, dynamic>.from(diary);
-    setState(() {
-      _diaries.removeWhere((element) => element['id'] == id);
-    });
+    await SQLHelper.deleteDiary(id);
+    _refreshDiaries();
 
     if (mounted) {
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.clearSnackBars();
-      messenger.showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Diary deleted'),
-          duration: const Duration(seconds: 2),
-          behavior: SnackBarBehavior.floating,
+          content: const Text('Diary entry deleted.'),
+          duration: const Duration(seconds: 3),
           action: SnackBarAction(
-            label: 'Undo',
+            label: 'UNDO',
             textColor: Colors.tealAccent,
             onPressed: () async {
-              if (_lastDeletedDiary != null) {
-                await SQLHelper.saveDiary(_lastDeletedDiary!);
-                _refreshDiaries();
-                _lastDeletedDiary = null;
-              }
+              await SQLHelper.createDiary(backupFeeling, backupDescription);
+              _refreshDiaries();
             },
           ),
         ),
       );
-    }
-
-    try {
-      await SQLHelper.deleteDiary(id);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting diary: $e')),
-        );
-        _refreshDiaries();
-      }
     }
   }
 
@@ -329,170 +164,78 @@ class HomePageState extends State<HomePage> {
           : Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.all(12),
                   child: Card(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                    elevation: 3,
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.cloud, color: Color(0xFF009688)),
-                              const SizedBox(width: 10),
-                              const Text(
-                                'Quick Dashboard',
-                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                              ),
-                              const Spacer(),
-                              if (_isWeatherLoading)
-                                const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _weatherSummary ?? 'Loading the latest weather and mood summary...',
-                            style: const TextStyle(fontSize: 15),
-                          ),
-                          const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text(
-                                      'Suggested mood',
-                                      style: TextStyle(color: Colors.grey),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      _lastFeelingSuggestion ?? 'Happy',
-                                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: () => _showForm(null),
-                                icon: const Icon(Icons.add),
-                                label: const Text('New entry'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF009688),
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                              ),
-                            ],
-                          ),
+                          Text(_weatherSummary ?? 'Loading weather...'),
+                          const SizedBox(height: 10),
+                          Text('Suggested mood: ${_lastFeelingSuggestion ?? "Happy"}'),
                         ],
                       ),
                     ),
                   ),
                 ),
                 Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: _refreshDiaries,
-                    child: _diaries.isEmpty
-                        ? ListView(
-                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                            children: const [
-                              Center(
-                                child: Text(
-                                  'No diaries yet. Tap + to add your first entry.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                              ),
-                            ],
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-                            itemCount: _diaries.length,
-                            itemBuilder: (context, index) {
-                              final diary = _diaries[index];
-                              final cardColor = _moodCardColor(diary['feeling'] as String?);
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 14),
-                                color: cardColor,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                elevation: 4,
-                                child: ListTile(
-                                  contentPadding: const EdgeInsets.all(16),
-                                  leading: CircleAvatar(
-                                    radius: 28,
-                                    backgroundColor: Colors.white,
-                                    child: ClipOval(
-                                      child: _moodAvatar(diary['feeling'] as String?),
-                                    ),
-                                  ),
-                                  title: Text(
-                                    diary['feeling'] ?? '',
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold, fontSize: 18, color: Colors.black),
-                                  ),
-                                  subtitle: Padding(
-                                    padding: const EdgeInsets.only(top: 8.0),
-                                    child: Text(
-                                      '${diary['description'] ?? ''}\n\n${diary['createdAt'] ?? ''}',
-                                      style: const TextStyle(color: Colors.black, height: 1.4),
-                                    ),
-                                  ),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.edit, color: Colors.teal),
-                                        onPressed: () => _showForm(diary['id'] as int),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete, color: Colors.redAccent),
-                                        onPressed: () => _deleteDiary(diary['id'] as int),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
+                  child: ListView.builder(
+                    itemCount: _diaries.length,
+                    itemBuilder: (context, index) {
+                      final diary = _diaries[index];
+                      return Card(
+                        color: _moodCardColor(diary['feeling']),
+                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.white,
+                            child: _moodAvatar(diary['feeling']),
                           ),
+                          title: Text(diary['feeling'] ?? ''),
+                          subtitle: Text(diary['description'] ?? ''),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(icon: const Icon(Icons.edit), onPressed: () => _showForm(diary['id'])),
+                              IconButton(icon: const Icon(Icons.delete), onPressed: () => _deleteDiary(diary['id'])),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],
             ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add),
         onPressed: () => _showForm(null),
+        child: const Icon(Icons.add),
       ),
     );
   }
 }
 
 // =========================================================================
-// DIARY FORM PAGE: DUAL INPUT MODE + VISUALIZER + ACCURACY + AI LAYER
+// DIARY FORM PAGE (DROPDOWN + INTEGRATED VOICE INPUT)
 // =========================================================================
 class DiaryFormPage extends StatefulWidget {
-  const DiaryFormPage({
-    Key? key,
-    required this.title,
-    this.initialFeeling,
-    this.initialDescription,
-    required this.submitLabel,
-    required this.onSave,
-  }) : super(key: key);
-
   final String title;
   final String? initialFeeling;
   final String? initialDescription;
   final String submitLabel;
   final Future<void> Function(String feeling, String description) onSave;
+
+  const DiaryFormPage({
+    super.key,
+    required this.title,
+    this.initialFeeling,
+    this.initialDescription,
+    required this.submitLabel,
+    required this.onSave,
+  });
 
   @override
   State<DiaryFormPage> createState() => _DiaryFormPageState();
@@ -500,139 +243,101 @@ class DiaryFormPage extends StatefulWidget {
 
 class _DiaryFormPageState extends State<DiaryFormPage> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _feelingController;
+  late final TextEditingController _customFeelingController;
   late final TextEditingController _descriptionController;
   bool _isSaving = false;
 
-  // Ciri STT & AI
+  final List<String> _moodOptions = ['Happy', 'Sad', 'Angry', 'Other'];
+  String? _selectedMood;
+  bool _isCustomMood = false;
+
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
-  bool _isListening = false;
-  double _confidence = 1.0;
-  String _sentimentReport = "Tiada analisis dilakukan lagi.";
-  
-  Timer? _waveTimer;
-  List<double> _waveHeights = List.generate(6, (_) => 5.0);
-  final Random _random = Random();
+  bool _isListeningDesc = false;
+  String _sentimentReport = "No analysis performed yet.";
 
   @override
   void initState() {
     super.initState();
-    _feelingController = TextEditingController(text: widget.initialFeeling ?? '');
     _descriptionController = TextEditingController(text: widget.initialDescription ?? '');
-    _initSpeech();
-    if (_descriptionController.text.isNotEmpty) {
-      _analyzeSentiment(_descriptionController.text);
+    
+    final initial = widget.initialFeeling ?? '';
+    if (initial.isEmpty) {
+      _selectedMood = 'Happy';
+      _customFeelingController = TextEditingController();
+    } else if (_moodOptions.contains(initial)) {
+      _selectedMood = initial;
+      _customFeelingController = TextEditingController();
+    } else {
+      _selectedMood = 'Other';
+      _isCustomMood = true;
+      _customFeelingController = TextEditingController(text: initial);
     }
+
+    _initSpeechEngine();
   }
 
-  void _initSpeech() async {
+  void _initSpeechEngine() async {
     try {
-      var status = await Permission.microphone.status;
-      if (status.isDenied) {
-        status = await Permission.microphone.request();
-      }
       _speechEnabled = await _speechToText.initialize(
-        onError: (val) => debugPrint('Speech Error: $val'),
-        onStatus: (val) => debugPrint('Speech Status: $val'),
+        onError: (val) => debugPrint('STT Error: $val'),
+        onStatus: (val) => debugPrint('STT Status: $val'),
       );
       setState(() {});
-    } catch (e) {
-      debugPrint('Speech Init Failed: $e');
-    }
+    } catch (_) {}
   }
 
-  void _startListening(TextEditingController targetController) async {
-    if (_speechEnabled && !_isListening) {
-      _startWaveAnimation();
-      setState(() {
-        _isListening = true;
-      });
+  void _listenToDescription() async {
+    if (!_speechEnabled) _initSpeechEngine();
+
+    try {
+      if (await Permission.microphone.status.isDenied) {
+        await Permission.microphone.request();
+      }
+    } catch (_) {}
+
+    if (!_isListeningDesc) {
+      setState(() => _isListeningDesc = true);
       await _speechToText.listen(
         onResult: (result) {
           setState(() {
-            targetController.text = result.recognizedWords;
-            if (result.hasConfidenceRating && result.confidence > 0) {
-              _confidence = result.confidence;
-            }
-          });
-          if (targetController == _descriptionController) {
+            _descriptionController.text = result.recognizedWords;
             _analyzeSentiment(result.recognizedWords);
-          }
+          });
         },
       );
-    }
-  }
-
-  void _stopListening() async {
-    if (_isListening) {
+    } else {
       await _speechToText.stop();
-      _stopWaveAnimation();
-      setState(() {
-        _isListening = false;
-      });
+      setState(() => _isListeningDesc = false);
     }
-  }
-
-  void _startWaveAnimation() {
-    _waveTimer = Timer.periodic(const Duration(milliseconds: 150), (timer) {
-      setState(() {
-        _waveHeights = List.generate(6, (_) => _random.nextDouble() * 35.0 + 5.0);
-      });
-    });
-  }
-
-  void _stopWaveAnimation() {
-    _waveTimer?.cancel();
-    setState(() {
-      _waveHeights = List.generate(6, (_) => 5.0);
-    });
   }
 
   void _analyzeSentiment(String text) {
     if (text.trim().isEmpty) return;
     final lowerText = text.toLowerCase();
-    int positiveScore = 0;
-    int negativeScore = 0;
-
-    final positiveWords = ['happy', 'good', 'joy', 'gembira', 'best', 'love', 'tenang', 'glad', 'smile', 'aman', 'seronok'];
-    final negativeWords = ['sad', 'bad', 'angry', 'sedih', 'marah', 'down', 'stress', 'unhappy', 'cry', 'benci', 'kecewa'];
-
-    for (var word in positiveWords) {
-      if (lowerText.contains(word)) positiveScore++;
+    
+    if (lowerText.contains('happy') || lowerText.contains('joy') || lowerText.contains('good') || lowerText.contains('great')) {
+      setState(() {
+        _sentimentReport = "😊 Positive Sentiment Detected!";
+        if (!_isCustomMood) _selectedMood = "Happy";
+      });
+    } else if (lowerText.contains('sad') || lowerText.contains('cry') || lowerText.contains('angry') || lowerText.contains('bad')) {
+      setState(() {
+        _sentimentReport = "😢 Negative Sentiment Detected!";
+        if (!_isCustomMood) _selectedMood = "Sad";
+      });
+    } else {
+      setState(() {
+        _sentimentReport = "😐 Neutral Sentiment";
+      });
     }
-    for (var word in negativeWords) {
-      if (lowerText.contains(word)) negativeScore++;
-    }
-
-    setState(() {
-      if (positiveScore > negativeScore) {
-        _sentimentReport = "😊 Sentimen Positif Terkesan (Mood Stabil & Ceria)";
-        if (_feelingController.text.isEmpty) _feelingController.text = "Happy";
-      } else if (negativeScore > positiveScore) {
-        _sentimentReport = "😢 Sentimen Negatif Terkesan (Perlukan Sokongan Emosi)";
-        if (_feelingController.text.isEmpty) _feelingController.text = "Sad";
-      } else {
-        _sentimentReport = "😐 Sentimen Neutral (Emosi Sederhana)";
-        if (_feelingController.text.isEmpty) _feelingController.text = "Neutral";
-      }
-    });
   }
 
-  Future<void> _handleSave() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-    setState(() {
-      _isSaving = true;
-    });
-    await widget.onSave(
-      _feelingController.text.trim(),
-      _descriptionController.text.trim(),
-    );
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
+  @override
+  void dispose() {
+    _customFeelingController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
   }
 
   @override
@@ -644,169 +349,117 @@ class _DiaryFormPageState extends State<DiaryFormPage> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          padding: const EdgeInsets.all(20),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).cardColor.withOpacity(0.95),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.teal.shade100),
-                  ),
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Feeling / Mood',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text("Select Mood", style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        DropdownButtonFormField<String>(
+                          value: _selectedMood,
+                          items: _moodOptions.map((String mood) {
+                            return DropdownMenuItem<String>(
+                              value: mood,
+                              child: Text(mood),
+                            );
+                          }).toList(),
+                          onChanged: (newValue) {
+                            setState(() {
+                              _selectedMood = newValue;
+                              _isCustomMood = (newValue == 'Other');
+                            });
+                          },
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.emoji_emotions_outlined),
                           ),
-                          IconButton(
-                            icon: Icon(_isListening ? Icons.stop_circle : Icons.mic, 
-                                color: _isListening ? Colors.red : Colors.teal),
-                            onPressed: _isListening 
-                                ? _stopListening 
-                                : () => _startListening(_feelingController),
+                        ),
+                        if (_isCustomMood) ...[
+                          const SizedBox(height: 16),
+                          const Text("Enter Custom Mood", style: TextStyle(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _customFeelingController,
+                            decoration: const InputDecoration(
+                              hintText: 'Type your custom feeling here...',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.edit_note_rounded),
+                            ),
+                            validator: (v) => (_isCustomMood && v!.isEmpty) ? 'Please type your custom feeling' : null,
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: _feelingController,
-                        decoration: const InputDecoration(
-                          hintText: 'e.g. Happy, Sad, Angry',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.emoji_emotions_outlined),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter a feeling';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 18),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Description',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                          ),
-                          IconButton(
-                            icon: Icon(_isListening ? Icons.stop_circle : Icons.mic, 
-                                color: _isListening ? Colors.red : Colors.teal),
-                            onPressed: _isListening 
-                                ? _stopListening 
-                                : () => _startListening(_descriptionController),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      TextFormField(
-                        controller: _descriptionController,
-                        decoration: const InputDecoration(
-                          hintText: 'Write or speak about your day...',
-                          border: OutlineInputBorder(),
-                          alignLabelWithHint: true,
-                        ),
-                        maxLines: 5,
-                        onChanged: _analyzeSentiment,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Please enter a description';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      if (_isListening)
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          alignment: Alignment.center,
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: _waveHeights.map((height) {
-                                  return AnimatedContainer(
-                                    duration: const Duration(milliseconds: 150),
-                                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                                    width: 6,
-                                    height: height,
-                                    decoration: BoxDecoration(
-                                      color: Colors.teal.shade400,
-                                      borderRadius: BorderRadius.circular(3),
-                                    ),
-                                  );
-                                }).toList(),
+                        const SizedBox(height: 18),
+                        const Text("Description", style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _descriptionController,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            hintText: 'Type or use voice to speak your thoughts...',
+                            border: const OutlineInputBorder(),
+                            suffixIcon: Padding(
+                              padding: const EdgeInsets.only(bottom: 50),
+                              child: IconButton(
+                                icon: Icon(_isListeningDesc ? Icons.stop : Icons.mic, color: _isListeningDesc ? Colors.red : Colors.teal),
+                                onPressed: _listenToDescription,
                               ),
-                              const SizedBox(height: 6),
-                              const Text("Mendengar suara anda...", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                      if (_descriptionController.text.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.assignment_turned_in_outlined, size: 16, color: Colors.grey),
-                              const SizedBox(width: 6),
-                              Text(
-                                "Tahap Ketepatan Suara: ${(_confidence * 100).toStringAsFixed(1)}%",
-                                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ),
-                      const Divider(height: 24),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.teal.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "📊 Real-time AI Sentiment Tracker:",
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.teal),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _sentimentReport,
-                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                            ),
-                          ],
+                          ),
+                          onChanged: _analyzeSentiment,
+                          validator: (v) => v!.isEmpty ? 'Please enter a description' : null,
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 14),
+                Card(
+                  color: Colors.teal.shade50,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.analytics_outlined, size: 18, color: Colors.teal),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Real-time AI Sentiment Tracker:\n$_sentimentReport',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black87),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: _isSaving ? null : _handleSave,
+                  onPressed: _isSaving ? null : () async {
+                    if (_formKey.currentState!.validate()) {
+                      setState(() => _isSaving = true);
+                      final String finalFeeling = _isCustomMood ? _customFeelingController.text : (_selectedMood ?? 'Happy');
+                      await widget.onSave(finalFeeling, _descriptionController.text);
+                      if (mounted) Navigator.pop(context);
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
                     backgroundColor: const Color(0xFF009688),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: _isSaving
-                      ? const SizedBox(
-                          height: 18,
-                          width: 18,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
+                  child: _isSaving 
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : Text(widget.submitLabel, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ],

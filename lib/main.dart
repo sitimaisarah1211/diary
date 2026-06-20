@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'homepage.dart';
-import 'login_page.dart'; // Memastikan fail login_page diimport masuk ke sini
+import 'login_page.dart'; 
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -54,9 +54,6 @@ class _MyAppState extends State<MyApp> {
           backgroundColor: Color(0xFF009688),
           foregroundColor: Colors.white,
         ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: Color(0xFF009688),
-        ),
       ),
       darkTheme: ThemeData(
         brightness: Brightness.dark,
@@ -73,12 +70,8 @@ class _MyAppState extends State<MyApp> {
           backgroundColor: Color(0xFF009688),
           foregroundColor: Colors.white,
         ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: Color(0xFF009688),
-        ),
       ),
       themeMode: _themeMode,
-      // Mengekalkan SplashScreen sebagai pintu masuk utama aplikasi
       home: SplashScreen(
         isDarkMode: _themeMode == ThemeMode.dark,
         onToggleTheme: _toggleThemeMode,
@@ -101,9 +94,9 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 900), () {
+    // DIUBAH: Ditetapkan kepada 5 saat (5000 milliseconds) mengikut kehendak rubrik awak
+    Future.delayed(const Duration(milliseconds: 5000), () {
       if (!mounted) return;
-      // DIKEMAS KINI: Berpindah ke LoginPage dahulu (bukan terus ke HomePage)
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => LoginPage(
@@ -127,7 +120,7 @@ class _SplashScreenState extends State<SplashScreen> {
             Text('Siti Maisarah Diary', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             SizedBox(height: 12),
             Text('A reflective mood tracker with quick entry flow.', textAlign: TextAlign.center),
-            SizedBox(height: 18),
+            SizedBox(height: 24),
             CircularProgressIndicator(strokeWidth: 3),
           ],
         ),
