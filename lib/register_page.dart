@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'login_page.dart';
+import 'homepage.dart';
 
 class RegisterPage extends StatefulWidget {
   final bool isDarkMode;
@@ -17,39 +17,50 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final TextEditingController _emailCtrl = TextEditingController();
+  final TextEditingController _passCtrl = TextEditingController();
+  final TextEditingController _confirmCtrl = TextEditingController();
   String _errorMessage = "";
+  
+  // Add these variables for show/hide password
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   Future<void> _register() async {
-    if (!_emailController.text.contains('@')) {
+    if (_passCtrl.text.trim() != _confirmCtrl.text.trim()) {
       setState(() {
-        _errorMessage = "Please enter a valid email (e.g. user@gmail.com)";
+        _errorMessage = "Passwords do not match";
       });
       return;
     }
-    try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Register successful!")),
+    if (_passCtrl.text.trim().length < 6) {
+      setState(() {
+        _errorMessage = "Password must be at least 6 characters";
+      });
+      return;
+    }
+
+    try {
+      await _auth.createUserWithEmailAndPassword(
+        email: _emailCtrl.text.trim(),
+        password: _passCtrl.text.trim(),
       );
 
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => LoginPage(
+          builder: (context) => HomePage(
             isDarkMode: widget.isDarkMode,
             onToggleTheme: widget.onToggleTheme,
+            customTitle: "Diary",
           ),
         ),
       );
-    } on FirebaseAuthException catch (e) {
+    } catch (e) {
       setState(() {
-        _errorMessage = "Register failed: ${e.message}";
+        _errorMessage = "Registration failed: $e";
       });
     }
   }
@@ -59,35 +70,115 @@ class _RegisterPageState extends State<RegisterPage> {
     final isDark = widget.isDarkMode;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF212121) : Colors.grey[100],
+      backgroundColor: isDark ? Colors.black : Colors.white,
       appBar: AppBar(
         title: const Text("Register"),
         backgroundColor: const Color(0xFF009688),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
             onPressed: widget.onToggleTheme,
+            color: Colors.white,
           ),
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/images/diary.png', width: 100),
+            // Email TextField
             TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(labelText: "Email"),
+              controller: _emailCtrl,
+              decoration: const InputDecoration(
+                labelText: "Email",
+                prefixIcon: Icon(Icons.email),
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.emailAddress,
             ),
+            const SizedBox(height: 16),
+            
+            // Password TextField with show/hide
             TextField(
-              controller: _passwordController,
-              decoration: const InputDecoration(labelText: "Password"),
-              obscureText: true,
+              controller: _passCtrl,
+              obscureText: _obscurePassword,
+              decoration: InputDecoration(
+                labelText: "Password",
+                prefixIcon: const Icon(Icons.lock),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                    color: Colors.grey,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscurePassword = !_obscurePassword;
+                    });
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            
+            // Confirm Password TextField with show/hide
+            TextField(
+              controller: _confirmCtrl,
+              obscureText: _obscureConfirmPassword,
+              decoration: InputDecoration(
+                labelText: "Confirm Password",
+                prefixIcon: const Icon(Icons.lock_outline),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                    color: Colors.grey,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _obscureConfirmPassword = !_obscureConfirmPassword;
+                    });
+                  },
+                ),
+              ),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(onPressed: _register, child: const Text("Register")),
-            const SizedBox(height: 20),
-            Text(_errorMessage, style: const TextStyle(color: Colors.red)),
+            
+            // Register Button
+            ElevatedButton(
+              onPressed: _register,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF009688),
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                "Register",
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+            ),
+            const SizedBox(height: 10),
+            
+            // Login Link
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text("Already have an account? Login"),
+            ),
+            
+            if (_errorMessage.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  _errorMessage,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
           ],
         ),
       ),
