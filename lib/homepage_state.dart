@@ -238,12 +238,56 @@ class HomePageState extends State<HomePage> {
     }
   }
 
+  // DELETE with Confirmation Dialog
+  void _confirmDelete(String id, Map<String, dynamic> data) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("🗑️ Delete Entry"),
+        content: const Text("Are you sure you want to delete this diary entry?"),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              "No",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteDiary(id, data);
+            },
+            child: const Text(
+              "Yes",
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // DELETE with Undo (3 seconds)
   void _deleteDiary(String id, Map<String, dynamic> data) {
+    // Delete from Firestore
+    FirebaseFirestore.instance.collection("diaries").doc(id).delete();
+    
+    // Show Undo Snackbar - 3 seconds
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text("🗑️ Entry deleted"),
         backgroundColor: Colors.red.shade700,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 3), // 3 saat
         action: SnackBarAction(
           label: "UNDO",
           textColor: Colors.white,
@@ -261,8 +305,6 @@ class HomePageState extends State<HomePage> {
         ),
       ),
     );
-
-    FirebaseFirestore.instance.collection("diaries").doc(id).delete();
   }
 
   void _editDiary(String id, String oldFeeling, String oldDesc) {
@@ -379,11 +421,6 @@ class HomePageState extends State<HomePage> {
 
   String _formatDate(DateTime date) {
     return DateFormat('dd MMM yyyy, HH:mm').format(date);
-  }
-
-  // Helper function to safely get data from diary
-  String _getDiaryData(Map<String, dynamic> data, String key, String defaultValue) {
-    return data[key]?.toString() ?? defaultValue;
   }
 
   @override
@@ -633,132 +670,133 @@ class HomePageState extends State<HomePage> {
                           ? timestamp.toDate()
                           : DateTime.now();
                       
-                      // Safe get location and weather (handle null)
+                      // Safe get location and weather
                       final location = data['location']?.toString() ?? "";
                       final weather = data['weather']?.toString() ?? "";
 
-                      return Slidable(
-                        key: Key(diary.id),
-                        endActionPane: ActionPane(
-                          motion: const ScrollMotion(),
-                          children: [
-                            SlidableAction(
-                              onPressed: (context) => _editDiary(
-                                diary.id,
-                                feeling,
-                                description,
-                              ),
-                              backgroundColor: Colors.blue.shade600,
-                              foregroundColor: Colors.white,
-                              icon: Icons.edit,
-                              label: 'Edit',
-                            ),
-                            SlidableAction(
-                              onPressed: (context) => _deleteDiary(
-                                diary.id,
-                                data,
-                              ),
-                              backgroundColor: Colors.red.shade600,
-                              foregroundColor: Colors.white,
-                              icon: Icons.delete,
-                              label: 'Delete',
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.grey[850] : Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.08),
+                              spreadRadius: 1,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isDark ? Colors.grey[850] : Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.08),
-                                spreadRadius: 1,
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  // Emoji
-                                  Text(
-                                    _feelingEmojis[feeling] ?? '😊',
-                                    style: const TextStyle(fontSize: 30),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                // Emoji
+                                Text(
+                                  _feelingEmojis[feeling] ?? '😊',
+                                  style: const TextStyle(fontSize: 30),
+                                ),
+                                const SizedBox(width: 10),
+                                // Feeling and Date
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        feeling,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                        ),
+                                      ),
+                                      Text(
+                                        _formatDate(date),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 10),
-                                  // Feeling and Date
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
+                                ),
+                                // EDIT BUTTON
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.edit,
+                                    color: Colors.blue.shade600,
+                                    size: 22,
+                                  ),
+                                  onPressed: () => _editDiary(
+                                    diary.id,
+                                    feeling,
+                                    description,
+                                  ),
+                                  tooltip: 'Edit',
+                                ),
+                                // DELETE BUTTON - with confirmation
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.delete,
+                                    color: Colors.red.shade600,
+                                    size: 22,
+                                  ),
+                                  onPressed: () => _confirmDelete(
+                                    diary.id,
+                                    data,
+                                  ),
+                                  tooltip: 'Delete',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              description,
+                              style: const TextStyle(fontSize: 14, height: 1.4),
+                            ),
+                            // Location & Weather badges
+                            if (location.isNotEmpty || weather.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF009688).withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (weather.isNotEmpty)
                                         Text(
-                                          feeling,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                          ),
+                                          weather,
+                                          style: const TextStyle(fontSize: 11),
+                                        ),
+                                      if (location.isNotEmpty) ...[
+                                        const SizedBox(width: 4),
+                                        Icon(
+                                          Icons.location_on,
+                                          size: 12,
+                                          color: Colors.grey.shade600,
                                         ),
                                         Text(
-                                          _formatDate(date),
+                                          location,
                                           style: TextStyle(
-                                            fontSize: 11,
-                                            color: Colors.grey.shade500,
+                                            fontSize: 10,
+                                            color: Colors.grey.shade600,
                                           ),
                                         ),
                                       ],
-                                    ),
+                                    ],
                                   ),
-                                  // Location & Weather badges
-                                  if (location.isNotEmpty || weather.isNotEmpty)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFF009688).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          if (weather.isNotEmpty)
-                                            Text(
-                                              weather,
-                                              style: const TextStyle(fontSize: 11),
-                                            ),
-                                          if (location.isNotEmpty) ...[
-                                            const SizedBox(width: 4),
-                                            Icon(
-                                              Icons.location_on,
-                                              size: 12,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                            Text(
-                                              location,
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: Colors.grey.shade600,
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                ],
+                                ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                description,
-                                style: const TextStyle(fontSize: 14, height: 1.4),
-                              ),
-                            ],
-                          ),
+                          ],
                         ),
                       );
                     },
