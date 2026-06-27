@@ -7,6 +7,8 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 part 'homepage_state.dart';
 

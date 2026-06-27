@@ -8,13 +8,7 @@ class HomePageState extends State<HomePage> {
   String _selectedFeeling = "Happy";
   final List<String> _feelings = ["Happy", "Sad", "Angry", "Excited", "Amazed"];
   
-  // Weather variables
-  String _weather = "Loading...";
-  String _temperature = "--°C";
-  String _weatherIcon = "☀️";
-  bool _isLoadingWeather = true;
-
-  // Feeling emoji map
+  // Feeling emoji mapping
   final Map<String, String> _feelingEmojis = {
     "Happy": "😊",
     "Sad": "😢",
@@ -22,18 +16,71 @@ class HomePageState extends State<HomePage> {
     "Excited": "🤩",
     "Amazed": "😲",
   };
+  
+  // Weather
+  String _weather = "Loading...";
+  String _temperature = "--°C";
+  String _weatherIcon = "☀️";
+  bool _isLoadingWeather = true;
+  
+  // Location
+  String _location = "Unknown";
 
   @override
   void initState() {
     super.initState();
     _fetchWeather();
+    _getLocation();
+  }
+
+  Future<void> _getLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() => _location = "Location disabled");
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          setState(() => _location = "Permission denied");
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        setState(() => _location = "Permission denied forever");
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition();
+      setState(() {
+        _location = "${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}";
+      });
+    } catch (e) {
+      setState(() => _location = "Unable to get location");
+    }
   }
 
   Future<void> _fetchWeather() async {
     try {
-      final response = await http.get(
-        Uri.parse('https://api.open-meteo.com/v1/forecast?latitude=3.139&longitude=101.686&current_weather=true'),
-      );
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition();
+      } catch (e) {
+        // Use default location
+      }
+
+      String url;
+      if (position != null) {
+        url = 'https://api.open-meteo.com/v1/forecast?latitude=${position.latitude}&longitude=${position.longitude}&current_weather=true';
+      } else {
+        url = 'https://api.open-meteo.com/v1/forecast?latitude=3.139&longitude=101.686&current_weather=true';
+      }
+
+      final response = await http.get(Uri.parse(url));
       
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -92,8 +139,12 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  String _getFeelingEmoji(String feeling) {
-    return _feelingEmojis[feeling] ?? '😊';
+  Widget _getFeelingEmoji(String feeling, {double size = 60}) {
+    final emoji = _feelingEmojis[feeling] ?? '😊';
+    return Text(
+      emoji,
+      style: TextStyle(fontSize: size),
+    );
   }
 
   Future<void> _saveDiary() async {
@@ -103,7 +154,10 @@ class HomePageState extends State<HomePage> {
     if (_descCtrl.text.trim().isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter a description")),
+        const SnackBar(
+          content: Text("Please enter a description"),
+          backgroundColor: Colors.orange,
+        ),
       );
       return;
     }
@@ -114,6 +168,8 @@ class HomePageState extends State<HomePage> {
         "feeling": _selectedFeeling,
         "description": _descCtrl.text.trim(),
         "createdAt": FieldValue.serverTimestamp(),
+        "location": _location,
+        "weather": "$_weatherIcon $_temperature",
       });
 
       _descCtrl.clear();
@@ -123,12 +179,19 @@ class HomePageState extends State<HomePage> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Diary saved successfully!")),
+        const SnackBar(
+          content: Text("✨ Diary saved successfully!"),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 1),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error saving diary: $e")),
+        SnackBar(
+          content: Text("Error: $e"),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -175,86 +238,91 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  void _deleteDiary(String id) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Confirm Delete"),
-        content: const Text("Are you sure you want to delete this entry?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              final doc = FirebaseFirestore.instance.collection("diaries").doc(id);
-              final snapshot = await doc.get();
-              final data = snapshot.data();
-
-              await doc.delete();
-
-              if (!mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text("Entry deleted"),
-                  action: SnackBarAction(
-                    label: "Undo",
-                    onPressed: () async {
-                      if (data != null) {
-                        await FirebaseFirestore.instance
-                            .collection("diaries")
-                            .add(data);
-                      }
-                    },
-                  ),
-                ),
-              );
-            },
-            child: const Text("Delete"),
-          ),
-        ],
+  void _deleteDiary(String id, Map<String, dynamic> data) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text("🗑️ Entry deleted"),
+        backgroundColor: Colors.red.shade700,
+        duration: const Duration(seconds: 3),
+        action: SnackBarAction(
+          label: "UNDO",
+          textColor: Colors.white,
+          onPressed: () async {
+            await FirebaseFirestore.instance.collection("diaries").add(data);
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("✅ Entry restored!"),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 1),
+              ),
+            );
+          },
+        ),
       ),
     );
+
+    FirebaseFirestore.instance.collection("diaries").doc(id).delete();
   }
 
   void _editDiary(String id, String oldFeeling, String oldDesc) {
-    final TextEditingController feelingCtrl = TextEditingController(text: oldFeeling);
+    String newFeeling = oldFeeling;
     final TextEditingController descCtrl = TextEditingController(text: oldDesc);
 
     showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text("Edit Diary Entry"),
+          title: const Text("✏️ Edit Diary"),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
-                value: oldFeeling,
-                items: _feelings.map((f) {
-                  return DropdownMenuItem(
-                    value: f,
-                    child: Row(
-                      children: [
-                        Text(_getFeelingEmoji(f)),
-                        const SizedBox(width: 8),
-                        Text(f),
-                      ],
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButtonFormField<String>(
+                    value: newFeeling,
+                    items: _feelings.map((f) {
+                      return DropdownMenuItem(
+                        value: f,
+                        child: Row(
+                          children: [
+                            Text(
+                              _feelingEmojis[f]!,
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(f),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      newFeeling = val!;
+                    },
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      hintText: "Feeling",
                     ),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  feelingCtrl.text = val!;
-                },
-                decoration: const InputDecoration(labelText: "Feeling"),
+                  ),
+                ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextField(
                 controller: descCtrl,
-                decoration: const InputDecoration(labelText: "Description"),
+                decoration: const InputDecoration(
+                  labelText: "Description",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
+                ),
                 maxLines: null,
+                minLines: 3,
               ),
             ],
           ),
@@ -264,11 +332,20 @@ class HomePageState extends State<HomePage> {
               child: const Text("Cancel"),
             ),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF009688),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
               onPressed: () async {
                 if (descCtrl.text.trim().isEmpty) {
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Please enter a description")),
+                    const SnackBar(
+                      content: Text("Please enter a description"),
+                      backgroundColor: Colors.orange,
+                    ),
                   );
                   return;
                 }
@@ -276,16 +353,23 @@ class HomePageState extends State<HomePage> {
                     .collection("diaries")
                     .doc(id)
                     .update({
-                  "feeling": feelingCtrl.text,
+                  "feeling": newFeeling,
                   "description": descCtrl.text.trim(),
                 });
                 Navigator.pop(ctx);
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Entry updated successfully")),
+                  const SnackBar(
+                    content: Text("✅ Entry updated!"),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 1),
+                  ),
                 );
               },
-              child: const Text("Update"),
+              child: const Text(
+                "Update",
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
@@ -294,7 +378,12 @@ class HomePageState extends State<HomePage> {
   }
 
   String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}:${date.second.toString().padLeft(2, '0')}';
+    return DateFormat('dd MMM yyyy, HH:mm').format(date);
+  }
+
+  // Helper function to safely get data from diary
+  String _getDiaryData(Map<String, dynamic> data, String key, String defaultValue) {
+    return data[key]?.toString() ?? defaultValue;
   }
 
   @override
@@ -313,34 +402,18 @@ class HomePageState extends State<HomePage> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          // Weather in AppBar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(
-              children: [
-                if (!_isLoadingWeather) ...[
-                  Text(
-                    _weatherIcon,
-                    style: const TextStyle(fontSize: 20),
-                  ),
+          if (!_isLoadingWeather) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Row(
+                children: [
+                  Text(_weatherIcon, style: const TextStyle(fontSize: 18)),
                   const SizedBox(width: 4),
-                  Text(
-                    _temperature,
-                    style: const TextStyle(fontSize: 14),
-                  ),
-                ] else ...[
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  ),
+                  Text(_temperature, style: const TextStyle(fontSize: 13)),
                 ],
-              ],
+              ),
             ),
-          ),
+          ],
           IconButton(
             icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
             onPressed: _toggleTheme,
@@ -390,7 +463,7 @@ class HomePageState extends State<HomePage> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButtonFormField<String>(
@@ -401,7 +474,7 @@ class HomePageState extends State<HomePage> {
                           child: Row(
                             children: [
                               Text(
-                                _getFeelingEmoji(f),
+                                _feelingEmojis[f]!,
                                 style: const TextStyle(fontSize: 24),
                               ),
                               const SizedBox(width: 8),
@@ -415,17 +488,22 @@ class HomePageState extends State<HomePage> {
                       },
                       decoration: const InputDecoration(
                         border: InputBorder.none,
-                        hintText: "Feeling",
+                        hintText: "How are you feeling?",
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 12),
+                // Big emoji display
+                Center(
+                  child: _getFeelingEmoji(_selectedFeeling, size: 80),
+                ),
+                const SizedBox(height: 8),
                 // Description with Voice
                 Container(
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
@@ -434,10 +512,10 @@ class HomePageState extends State<HomePage> {
                           controller: _descCtrl,
                           decoration: const InputDecoration(
                             border: InputBorder.none,
-                            hintText: "Description",
+                            hintText: "What's on your mind?",
                             contentPadding: EdgeInsets.symmetric(
                               horizontal: 12,
-                              vertical: 12,
+                              vertical: 14,
                             ),
                           ),
                           maxLines: null,
@@ -457,7 +535,7 @@ class HomePageState extends State<HomePage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // Create Memo Button
+                // Save Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -465,12 +543,12 @@ class HomePageState extends State<HomePage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF009688),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: const Text(
-                      "Create Memo",
+                      "💾 Save Diary",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -493,110 +571,198 @@ class HomePageState extends State<HomePage> {
                   .snapshots(),
               builder: (ctx, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF009688),
+                    ),
+                  );
                 }
                 if (snapshot.hasError) {
-                  return Center(child: Text("Error: ${snapshot.error}"));
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.error_outline, size: 60, color: Colors.red.shade300),
+                        const SizedBox(height: 16),
+                        Text(
+                          "Error loading entries",
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                      ],
+                    ),
+                  );
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                   return const Center(
-                    child: Text(
-                      "No diary entries yet",
-                      style: TextStyle(fontSize: 16),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.book, size: 60, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          "No diary entries yet",
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          "Start writing your first entry above ✨",
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                      ],
                     ),
                   );
                 }
 
                 final docs = snapshot.data!.docs;
-                return ListView.builder(
-                  padding: const EdgeInsets.all(12),
-                  itemCount: docs.length,
-                  itemBuilder: (ctx, i) {
-                    final diary = docs[i];
-                    final feeling = diary["feeling"] ?? "Happy";
-                    final description = diary["description"] ?? "";
-                    final timestamp = diary["createdAt"] as Timestamp?;
-                    final date = timestamp != null
-                        ? timestamp.toDate()
-                        : DateTime.now();
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    setState(() {});
+                  },
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: docs.length,
+                    itemBuilder: (ctx, i) {
+                      final diary = docs[i];
+                      final data = diary.data() as Map<String, dynamic>;
+                      
+                      // Safe get data with null check
+                      final feeling = data['feeling']?.toString() ?? "Happy";
+                      final description = data['description']?.toString() ?? "";
+                      final timestamp = data['createdAt'] as Timestamp?;
+                      final date = timestamp != null
+                          ? timestamp.toDate()
+                          : DateTime.now();
+                      
+                      // Safe get location and weather (handle null)
+                      final location = data['location']?.toString() ?? "";
+                      final weather = data['weather']?.toString() ?? "";
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.grey[850] : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.withOpacity(0.05),
-                            spreadRadius: 1,
-                            blurRadius: 5,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              // Feeling Emoji
-                              Text(
-                                _getFeelingEmoji(feeling),
-                                style: const TextStyle(fontSize: 24),
-                              ),
-                              const SizedBox(width: 8),
-                              // Feeling name
-                              Text(
+                      return Slidable(
+                        key: Key(diary.id),
+                        endActionPane: ActionPane(
+                          motion: const ScrollMotion(),
+                          children: [
+                            SlidableAction(
+                              onPressed: (context) => _editDiary(
+                                diary.id,
                                 feeling,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
+                                description,
                               ),
-                              const Spacer(),
-                              // Edit button
-                              IconButton(
-                                icon: const Icon(Icons.edit, size: 20),
-                                onPressed: () => _editDiary(
-                                  diary.id,
-                                  feeling,
-                                  description,
-                                ),
-                                color: Colors.blue.shade600,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
+                              backgroundColor: Colors.blue.shade600,
+                              foregroundColor: Colors.white,
+                              icon: Icons.edit,
+                              label: 'Edit',
+                            ),
+                            SlidableAction(
+                              onPressed: (context) => _deleteDiary(
+                                diary.id,
+                                data,
                               ),
-                              const SizedBox(width: 8),
-                              // Delete button
-                              IconButton(
-                                icon: const Icon(Icons.delete, size: 20),
-                                onPressed: () => _deleteDiary(diary.id),
-                                color: Colors.red.shade600,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
+                              backgroundColor: Colors.red.shade600,
+                              foregroundColor: Colors.white,
+                              icon: Icons.delete,
+                              label: 'Delete',
+                            ),
+                          ],
+                        ),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark ? Colors.grey[850] : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withOpacity(0.08),
+                                spreadRadius: 1,
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          // Description
-                          Text(
-                            description,
-                            style: const TextStyle(fontSize: 15),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  // Emoji
+                                  Text(
+                                    _feelingEmojis[feeling] ?? '😊',
+                                    style: const TextStyle(fontSize: 30),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  // Feeling and Date
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          feeling,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                          ),
+                                        ),
+                                        Text(
+                                          _formatDate(date),
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.grey.shade500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  // Location & Weather badges
+                                  if (location.isNotEmpty || weather.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF009688).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (weather.isNotEmpty)
+                                            Text(
+                                              weather,
+                                              style: const TextStyle(fontSize: 11),
+                                            ),
+                                          if (location.isNotEmpty) ...[
+                                            const SizedBox(width: 4),
+                                            Icon(
+                                              Icons.location_on,
+                                              size: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                            Text(
+                                              location,
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                description,
+                                style: const TextStyle(fontSize: 14, height: 1.4),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 8),
-                          // Date
-                          Text(
-                            _formatDate(date),
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             ),

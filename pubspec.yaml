@@ -5,19 +5,19 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"  # ← Tukar ni
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
-  # Firebase core + services
+  # Firebase
   firebase_core: ^2.30.0
   firebase_auth: ^4.19.4
   cloud_firestore: ^4.17.3
   firebase_messaging: ^14.9.4
 
-  # Local authentication (fingerprint/face biometric)
+  # Biometric
   local_auth: ^2.1.7
 
   # Local storage
@@ -26,17 +26,20 @@ dependencies:
   # Voice input
   speech_to_text: ^6.6.0
 
-  # Animations / GIFs
-  lottie: ^2.6.0
-
   # Permissions
   permission_handler: ^11.3.1
 
   # Date formatting
   intl: ^0.19.0
 
-  # HTTP requests (optional, untuk weather API)
+  # HTTP for weather
   http: ^1.2.1
+
+  # Location for GPS
+  geolocator: ^10.1.0
+
+  # For better UI
+  flutter_slidable: ^3.0.0
 
 dev_dependencies:
   flutter_test:
@@ -46,9 +49,4 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/diary.png
-    - assets/images/happy.gif
-    - assets/images/sad.gif
-    - assets/images/angry.gif
-    # - assets/images/excited.gif
-    - assets/images/amazed.gif  # Tambah ni
+    - assets/images/
