@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "527711758381",
+    "project_id": "siti-maisarah-diary",
+    "storage_bucket": "siti-maisarah-diary.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:527711758381:android:b042cf80de78ceb0b5b0a4",
+        "android_client_info": {
+          "package_name": "com.example.diary"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAaHFU7AIZu_vv_HeFH0s6aXANyfR2a1P0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:527711758381:android:1cd0e0bf115ce27bb5b0a4",
+        "android_client_info": {
+          "package_name": "com.example.diaryapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAaHFU7AIZu_vv_HeFH0s6aXANyfR2a1P0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

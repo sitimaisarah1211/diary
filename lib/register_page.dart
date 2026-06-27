@@ -1,39 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:local_auth/local_auth.dart';
-import 'homepage.dart';
-import 'register_page.dart';
+import 'login_page.dart';
 
-class LoginPage extends StatefulWidget {
+class RegisterPage extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
 
-  const LoginPage({
+  const RegisterPage({
     super.key,
     required this.isDarkMode,
     required this.onToggleTheme,
   });
 
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  State<RegisterPage> createState() => _RegisterPageState();
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final LocalAuthentication auth = LocalAuthentication();
   String _errorMessage = "";
 
-  Future<void> _login() async {
+  Future<void> _register() async {
+    if (!_emailController.text.contains('@')) {
+      setState(() {
+        _errorMessage = "Please enter a valid email (e.g. user@gmail.com)";
+      });
+      return;
+    }
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Register successful!")),
+      );
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => HomePage(
+          builder: (context) => LoginPage(
             isDarkMode: widget.isDarkMode,
             onToggleTheme: widget.onToggleTheme,
           ),
@@ -41,31 +49,7 @@ class _LoginPageState extends State<LoginPage> {
       );
     } on FirebaseAuthException catch (e) {
       setState(() {
-        _errorMessage = "Login failed: ${e.message}";
-      });
-    }
-  }
-
-  Future<void> _loginWithFingerprint() async {
-    try {
-      bool didAuthenticate = await auth.authenticate(
-        localizedReason: 'Please authenticate to login',
-        options: const AuthenticationOptions(biometricOnly: true),
-      );
-      if (didAuthenticate) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => HomePage(
-              isDarkMode: widget.isDarkMode,
-              onToggleTheme: widget.onToggleTheme,
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      setState(() {
-        _errorMessage = "Fingerprint login failed: $e";
+        _errorMessage = "Register failed: ${e.message}";
       });
     }
   }
@@ -77,7 +61,7 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF212121) : Colors.grey[100],
       appBar: AppBar(
-        title: const Text("Sign In"),
+        title: const Text("Register"),
         backgroundColor: const Color(0xFF009688),
         actions: [
           IconButton(
@@ -102,26 +86,8 @@ class _LoginPageState extends State<LoginPage> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _login,
-              child: const Text("Login"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => RegisterPage(
-                      isDarkMode: widget.isDarkMode,
-                      onToggleTheme: widget.onToggleTheme,
-                    ),
-                  ),
-                );
-              },
+              onPressed: _register,
               child: const Text("Register"),
-            ),
-            ElevatedButton(
-              onPressed: _loginWithFingerprint,
-              child: const Text("Login with Fingerprint"),
             ),
             const SizedBox(height: 20),
             Text(
