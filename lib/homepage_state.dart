@@ -1,27 +1,14 @@
 part of 'homepage.dart';
 
 class HomePageState extends State<HomePage> {
-  List<Map<String, dynamic>> _diaries = [];
-  bool _isLoading = true;
   String? _weatherSummary;
-  String? _lastFeelingSuggestion;
-  double _fontScale = 1.0; // NEW: font size toggle
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _refreshDiaries();
     _loadWeather();
-    _loadPreferences();
-    _initNotifications(); // NEW: push notifications
-  }
-
-  Future<void> _refreshDiaries() async {
-    final data = await SQLHelper.getDiaries();
-    setState(() {
-      _diaries = data;
-      _isLoading = false;
-    });
+    _initNotifications();
   }
 
   Future<void> _loadWeather() async {
@@ -42,7 +29,7 @@ class HomePageState extends State<HomePage> {
       }
     } catch (_) {
       setState(() {
-        _weatherSummary = 'Weather currently unavailable';
+        _weatherSummary = 'Weather unavailable';
       });
     }
   }
@@ -57,24 +44,6 @@ class HomePageState extends State<HomePage> {
     return 'Windy';
   }
 
-  Future<void> _loadPreferences() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _lastFeelingSuggestion =
-          prefs.getString('lastFeeling')?.trim().isNotEmpty == true
-              ? prefs.getString('lastFeeling')
-              : 'Happy';
-    });
-  }
-
-  Future<void> _saveLastFeeling(String feeling) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('lastFeeling', feeling);
-    setState(() {
-      _lastFeelingSuggestion = feeling;
-    });
-  }
-
   void _initNotifications() async {
     FirebaseMessaging messaging = FirebaseMessaging.instance;
     await messaging.requestPermission();
@@ -86,39 +55,36 @@ class HomePageState extends State<HomePage> {
   }
 
   void _handleLogout() async {
-    await FirebaseAuth.instance.signOut(); // keluar dari Firebase
+    await FirebaseAuth.instance.signOut();
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => LoginPage(
-          isDarkMode: Theme.of(context).brightness == Brightness.dark,
+          isDarkMode: widget.isDarkMode,
           onToggleTheme: widget.onToggleTheme,
         ),
       ),
     );
   }
 
+  void _createEntry() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Create new diary entry")),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark = widget.isDarkMode;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF212121) : Colors.grey[100],
+      backgroundColor: isDark ? Colors.black : Colors.white,
       appBar: AppBar(
-        title: const Text('Siti Maisarah Diary'),
+        title: Text(widget.customTitle), // guna customTitle
         backgroundColor: const Color(0xFF009688),
         actions: [
           IconButton(
             icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
             onPressed: widget.onToggleTheme,
-          ),
-          IconButton(
-            icon: const Icon(Icons.text_fields),
-            tooltip: 'Toggle Font Size',
-            onPressed: () {
-              setState(() {
-                _fontScale = _fontScale == 1.0 ? 1.2 : 1.0;
-              });
-            },
           ),
           IconButton(
             icon: const Icon(Icons.logout_rounded),
@@ -127,56 +93,20 @@ class HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _refreshDiaries,
-              child: _diaries.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No diary entries found.',
-                        style: TextStyle(
-                          fontSize: 16 * _fontScale,
-                          color: isDark ? Colors.white60 : Colors.black54,
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _diaries.length,
-                      itemBuilder: (context, index) {
-                        final diary = _diaries[index];
-                        return Card(
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
-                          child: ListTile(
-                            title: Text(
-                              diary['feeling'] ?? '',
-                              style: TextStyle(
-                                fontSize: 16 * _fontScale,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : Colors.black,
-                              ),
-                            ),
-                            subtitle: Text(
-                              diary['description'] ?? '',
-                              style: TextStyle(
-                                fontSize: 14 * _fontScale,
-                                color: isDark
-                                    ? Colors.white70
-                                    : Colors.black87,
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
+      body: Center(
+        child: _isLoading
+            ? const CircularProgressIndicator()
+            : Text(
+                _weatherSummary ?? "No diary entries found.",
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black,
+                  fontSize: 16,
+                ),
+              ),
+      ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.teal,
-        onPressed: () {
-          // your diary form logic here
-        },
-        child: const Icon(Icons.add, color: Colors.white),
+        onPressed: _createEntry,
+        child: const Icon(Icons.add),
       ),
     );
   }

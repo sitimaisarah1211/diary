@@ -37,7 +37,7 @@ class _SplashScreenState extends State<SplashScreen> {
       backgroundColor: widget.isDarkMode ? Colors.black : Colors.white,
       body: Center(
         child: Image.asset(
-          'assets/images/diary.png', // logo awak
+          'assets/images/diary.png',
           width: 150,
         ),
       ),

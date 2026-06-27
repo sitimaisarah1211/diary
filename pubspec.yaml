@@ -1,7 +1,7 @@
 name: diary
 description: A diary app with Firebase login, weather, speech-to-text, and notifications.
 
-publish_to: 'none' # since this is a local project
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:

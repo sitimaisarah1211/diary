@@ -26,16 +26,25 @@ class _LoginPageState extends State<LoginPage> {
 
   Future<void> _login() async {
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+
+      String email = userCredential.user?.email ?? "";
+      String username = email.split('@')[0];
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Login successful! Welcome $username")),
+      );
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (context) => HomePage(
             isDarkMode: widget.isDarkMode,
             onToggleTheme: widget.onToggleTheme,
+            customTitle: "$username Diary",
           ),
         ),
       );
@@ -53,12 +62,16 @@ class _LoginPageState extends State<LoginPage> {
         options: const AuthenticationOptions(biometricOnly: true),
       );
       if (didAuthenticate) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Fingerprint login successful!")),
+        );
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder: (context) => HomePage(
               isDarkMode: widget.isDarkMode,
               onToggleTheme: widget.onToggleTheme,
+              customTitle: "Diary",
             ),
           ),
         );
@@ -90,7 +103,7 @@ class _LoginPageState extends State<LoginPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Image.asset('assets/diary_logo.png', width: 100), // logo atas form
+            Image.asset('assets/images/diary.png', width: 100),
             TextField(
               controller: _emailController,
               decoration: const InputDecoration(labelText: "Email"),
@@ -101,10 +114,7 @@ class _LoginPageState extends State<LoginPage> {
               obscureText: true,
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _login,
-              child: const Text("Login"),
-            ),
+            ElevatedButton(onPressed: _login, child: const Text("Login")),
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
@@ -124,10 +134,7 @@ class _LoginPageState extends State<LoginPage> {
               child: const Text("Login with Fingerprint"),
             ),
             const SizedBox(height: 20),
-            Text(
-              _errorMessage,
-              style: const TextStyle(color: Colors.red),
-            ),
+            Text(_errorMessage, style: const TextStyle(color: Colors.red)),
           ],
         ),
       ),

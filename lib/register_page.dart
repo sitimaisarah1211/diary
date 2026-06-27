@@ -74,7 +74,7 @@ class _RegisterPageState extends State<RegisterPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            Image.asset('assets/diary_logo.png', width: 100), // logo atas form
+            Image.asset('assets/images/diary.png', width: 100),
             TextField(
               controller: _emailController,
               decoration: const InputDecoration(labelText: "Email"),
@@ -85,15 +85,9 @@ class _RegisterPageState extends State<RegisterPage> {
               obscureText: true,
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _register,
-              child: const Text("Register"),
-            ),
+            ElevatedButton(onPressed: _register, child: const Text("Register")),
             const SizedBox(height: 20),
-            Text(
-              _errorMessage,
-              style: const TextStyle(color: Colors.red),
-            ),
+            Text(_errorMessage, style: const TextStyle(color: Colors.red)),
           ],
         ),
       ),
