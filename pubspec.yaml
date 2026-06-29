@@ -12,10 +12,10 @@ dependencies:
     sdk: flutter
 
   # Firebase
-  firebase_core: ^2.30.0
-  firebase_auth: ^4.19.4
-  cloud_firestore: ^4.17.3
-  firebase_messaging: ^14.9.4
+  firebase_core: 4.11.0
+  firebase_auth: 6.5.4
+  cloud_firestore: 6.6.0
+  firebase_messaging: 16.4.1
 
   # Biometric
   local_auth: ^2.1.7
@@ -24,7 +24,7 @@ dependencies:
   shared_preferences: ^2.2.2
 
   # Voice input
-  speech_to_text: ^6.6.0
+  speech_to_text: 7.4.0
 
   # Permissions
   permission_handler: ^11.3.1
