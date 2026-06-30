@@ -42,7 +42,6 @@ class _SplashScreenState extends State<SplashScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo - Diary Icon
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -63,7 +62,6 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             const SizedBox(height: 30),
-            // App Name
             Text(
               'My Diary',
               style: TextStyle(
@@ -83,7 +81,6 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
             ),
             const SizedBox(height: 40),
-            // Loading Indicator
             SizedBox(
               width: 30,
               height: 30,

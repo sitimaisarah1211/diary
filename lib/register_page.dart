@@ -22,8 +22,6 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _passCtrl = TextEditingController();
   final TextEditingController _confirmCtrl = TextEditingController();
   String _errorMessage = "";
-  
-  // Add these variables for show/hide password
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
@@ -88,7 +86,6 @@ class _RegisterPageState extends State<RegisterPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Email TextField
             TextField(
               controller: _emailCtrl,
               decoration: const InputDecoration(
@@ -99,8 +96,6 @@ class _RegisterPageState extends State<RegisterPage> {
               keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 16),
-            
-            // Password TextField with show/hide
             TextField(
               controller: _passCtrl,
               obscureText: _obscurePassword,
@@ -122,8 +117,6 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             ),
             const SizedBox(height: 16),
-            
-            // Confirm Password TextField with show/hide
             TextField(
               controller: _confirmCtrl,
               obscureText: _obscureConfirmPassword,
@@ -145,8 +138,6 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             ),
             const SizedBox(height: 20),
-            
-            // Register Button
             ElevatedButton(
               onPressed: _register,
               style: ElevatedButton.styleFrom(
@@ -162,15 +153,12 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             ),
             const SizedBox(height: 10),
-            
-            // Login Link
             TextButton(
               onPressed: () {
                 Navigator.pop(context);
               },
               child: const Text("Already have an account? Login"),
             ),
-            
             if (_errorMessage.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.all(8.0),

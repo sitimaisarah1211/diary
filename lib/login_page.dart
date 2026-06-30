@@ -99,12 +99,11 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ],
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Logo
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -135,8 +134,6 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
             const SizedBox(height: 30),
-            
-            // Email TextField
             TextField(
               controller: _emailCtrl,
               decoration: const InputDecoration(
@@ -149,8 +146,6 @@ class _LoginPageState extends State<LoginPage> {
               keyboardType: TextInputType.emailAddress,
             ),
             const SizedBox(height: 16),
-            
-            // Password TextField with show/hide
             TextField(
               controller: _passCtrl,
               obscureText: _obscurePassword,
@@ -174,8 +169,6 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
             const SizedBox(height: 20),
-            
-            // Login Button
             ElevatedButton(
               onPressed: _loginWithEmail,
               style: ElevatedButton.styleFrom(
@@ -191,8 +184,6 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
             const SizedBox(height: 10),
-            
-            // Fingerprint Button
             OutlinedButton.icon(
               icon: const Icon(Icons.fingerprint),
               label: const Text("Login with Fingerprint"),
@@ -206,8 +197,6 @@ class _LoginPageState extends State<LoginPage> {
               onPressed: _loginWithFingerprint,
             ),
             const SizedBox(height: 10),
-            
-            // Register Link
             TextButton(
               onPressed: () {
                 Navigator.push(
@@ -222,7 +211,6 @@ class _LoginPageState extends State<LoginPage> {
               },
               child: const Text("Don't have an account? Create new account"),
             ),
-            
             if (_errorMessage.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.all(8.0),

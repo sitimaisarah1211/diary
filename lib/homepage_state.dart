@@ -7,8 +7,8 @@ class HomePageState extends State<HomePage> {
   final TextEditingController _descCtrl = TextEditingController();
   String _selectedFeeling = "Happy";
   final List<String> _feelings = ["Happy", "Sad", "Angry", "Excited", "Amazed"];
-  
-  // Feeling emoji mapping
+
+  // Fallback emojis
   final Map<String, String> _feelingEmojis = {
     "Happy": "😊",
     "Sad": "😢",
@@ -16,15 +16,26 @@ class HomePageState extends State<HomePage> {
     "Excited": "🤩",
     "Amazed": "😲",
   };
-  
-  // Weather
-  String _weather = "Loading...";
+
+  // GIF asset paths
+  final Map<String, String> _feelingGifs = {
+    "Happy": "assets/images/happy.gif",
+    "Sad": "assets/images/sad.gif",
+    "Angry": "assets/images/angry.gif",
+    "Excited": "assets/images/excited.gif",
+    "Amazed": "assets/images/amazed.gif",
+  };
+
+  // Weather & Location
   String _temperature = "--°C";
   String _weatherIcon = "☀️";
   bool _isLoadingWeather = true;
-  
-  // Location
   String _location = "Unknown";
+
+  // Search
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
+  bool _isSearching = false;
 
   @override
   void initState() {
@@ -33,6 +44,7 @@ class HomePageState extends State<HomePage> {
     _getLocation();
   }
 
+  // -------------------- Location & Weather --------------------
   Future<void> _getLocation() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -40,7 +52,6 @@ class HomePageState extends State<HomePage> {
         setState(() => _location = "Location disabled");
         return;
       }
-
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -49,12 +60,10 @@ class HomePageState extends State<HomePage> {
           return;
         }
       }
-
       if (permission == LocationPermission.deniedForever) {
         setState(() => _location = "Permission denied forever");
         return;
       }
-
       Position position = await Geolocator.getCurrentPosition();
       setState(() {
         _location = "${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}";
@@ -69,33 +78,25 @@ class HomePageState extends State<HomePage> {
       Position? position;
       try {
         position = await Geolocator.getCurrentPosition();
-      } catch (e) {
-        // Use default location
-      }
-
+      } catch (e) {}
       String url;
       if (position != null) {
         url = 'https://api.open-meteo.com/v1/forecast?latitude=${position.latitude}&longitude=${position.longitude}&current_weather=true';
       } else {
         url = 'https://api.open-meteo.com/v1/forecast?latitude=3.139&longitude=101.686&current_weather=true';
       }
-
       final response = await http.get(Uri.parse(url));
-      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final current = data['current_weather'];
-        
         setState(() {
           _temperature = '${current['temperature'].toStringAsFixed(0)}°C';
-          _weather = _getWeatherCondition(current['weathercode']);
           _weatherIcon = _getWeatherIcon(current['weathercode']);
           _isLoadingWeather = false;
         });
       }
     } catch (e) {
       setState(() {
-        _weather = "Weather unavailable";
         _temperature = "--°C";
         _isLoadingWeather = false;
       });
@@ -122,9 +123,8 @@ class HomePageState extends State<HomePage> {
     return '🌤️';
   }
 
-  void _toggleTheme() {
-    widget.onToggleTheme();
-  }
+  // -------------------- Theme & Logout --------------------
+  void _toggleTheme() => widget.onToggleTheme();
 
   void _handleLogout() async {
     await FirebaseAuth.instance.signOut();
@@ -139,18 +139,34 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _getFeelingEmoji(String feeling, {double size = 60}) {
-    final emoji = _feelingEmojis[feeling] ?? '😊';
-    return Text(
-      emoji,
-      style: TextStyle(fontSize: size),
-    );
+  // -------------------- Helper: GIF or Emoji --------------------
+  Widget _getFeelingWidget(String feeling, {double size = 60}) {
+    final assetPath = _feelingGifs[feeling];
+    if (assetPath != null) {
+      return Image.asset(
+        assetPath,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (ctx, error, stack) {
+          return Text(
+            _feelingEmojis[feeling] ?? '😊',
+            style: TextStyle(fontSize: size),
+          );
+        },
+      );
+    } else {
+      return Text(
+        _feelingEmojis[feeling] ?? '😊',
+        style: TextStyle(fontSize: size),
+      );
+    }
   }
 
+  // -------------------- CRUD Operations --------------------
   Future<void> _saveDiary() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
     if (_descCtrl.text.trim().isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -161,7 +177,6 @@ class HomePageState extends State<HomePage> {
       );
       return;
     }
-
     try {
       await FirebaseFirestore.instance.collection("diaries").add({
         "userId": user.uid,
@@ -171,12 +186,8 @@ class HomePageState extends State<HomePage> {
         "location": _location,
         "weather": "$_weatherIcon $_temperature",
       });
-
       _descCtrl.clear();
-      setState(() {
-        _selectedFeeling = "Happy";
-      });
-
+      setState(() => _selectedFeeling = "Happy");
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -196,98 +207,41 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  void _startVoiceSearch() async {
-    bool available = await _speech.initialize(
-      onStatus: (status) {
-        if (status == 'done' || status == 'notListening') {
-          if (mounted) {
-            setState(() => _isListening = false);
-          }
-        }
-      },
-    );
-    if (available) {
-      if (mounted) {
-        setState(() => _isListening = true);
-      }
-      _speech.listen(
-        onResult: (result) {
-          if (mounted) {
-            setState(() {
-              _descCtrl.text = result.recognizedWords;
-            });
-          }
-        },
-        listenOptions: stt.SpeechListenOptions(
-          listenMode: stt.ListenMode.dictation,
-          cancelOnError: true,
-        ),
-      );
-    } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Speech recognition not available")),
-      );
-    }
-  }
-
-  void _stopVoiceSearch() {
-    _speech.stop();
-    if (mounted) {
-      setState(() => _isListening = false);
-    }
-  }
-
-  // DELETE with Confirmation Dialog
   void _confirmDelete(String id, Map<String, dynamic> data) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("🗑️ Delete Entry"),
         content: const Text("Are you sure you want to delete this diary entry?"),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              "No",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+            child: const Text("No", style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red.shade600,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () {
               Navigator.pop(ctx);
               _deleteDiary(id, data);
             },
-            child: const Text(
-              "Yes",
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
+            child: const Text("Yes", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
   }
 
-  // DELETE with Undo (3 seconds)
   void _deleteDiary(String id, Map<String, dynamic> data) {
-    // Delete from Firestore
     FirebaseFirestore.instance.collection("diaries").doc(id).delete();
-    
-    // Show Undo Snackbar - 3 seconds
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Text("🗑️ Entry deleted"),
         backgroundColor: Colors.red.shade700,
-        duration: const Duration(seconds: 3), // 3 saat
+        duration: const Duration(seconds: 3),
         action: SnackBarAction(
           label: "UNDO",
           textColor: Colors.white,
@@ -310,7 +264,6 @@ class HomePageState extends State<HomePage> {
   void _editDiary(String id, String oldFeeling, String oldDesc) {
     String newFeeling = oldFeeling;
     final TextEditingController descCtrl = TextEditingController(text: oldDesc);
-
     showDialog(
       context: context,
       builder: (ctx) {
@@ -334,19 +287,14 @@ class HomePageState extends State<HomePage> {
                         value: f,
                         child: Row(
                           children: [
-                            Text(
-                              _feelingEmojis[f]!,
-                              style: const TextStyle(fontSize: 24),
-                            ),
+                            _getFeelingWidget(f, size: 32),
                             const SizedBox(width: 8),
                             Text(f),
                           ],
                         ),
                       );
                     }).toList(),
-                    onChanged: (val) {
-                      newFeeling = val!;
-                    },
+                    onChanged: (val) => newFeeling = val!,
                     decoration: const InputDecoration(
                       border: InputBorder.none,
                       hintText: "Feeling",
@@ -369,16 +317,11 @@ class HomePageState extends State<HomePage> {
             ],
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("Cancel"),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF009688),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () async {
                 if (descCtrl.text.trim().isEmpty) {
@@ -408,10 +351,7 @@ class HomePageState extends State<HomePage> {
                   ),
                 );
               },
-              child: const Text(
-                "Update",
-                style: TextStyle(color: Colors.white),
-              ),
+              child: const Text("Update", style: TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -419,22 +359,169 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return DateFormat('dd MMM yyyy, HH:mm').format(date);
+  // -------------------- Voice Input --------------------
+  void _startVoiceSearch() async {
+    bool available = await _speech.initialize(
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          if (mounted) setState(() => _isListening = false);
+        }
+      },
+    );
+    if (available) {
+      if (mounted) setState(() => _isListening = true);
+      _speech.listen(
+        onResult: (result) {
+          if (mounted) setState(() => _descCtrl.text = result.recognizedWords);
+        },
+        listenOptions: stt.SpeechListenOptions(
+          listenMode: stt.ListenMode.dictation,
+          cancelOnError: true,
+        ),
+      );
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Speech recognition not available")),
+      );
+    }
   }
 
+  void _stopVoiceSearch() {
+    _speech.stop();
+    if (mounted) setState(() => _isListening = false);
+  }
+
+  // -------------------- Build Drawer --------------------
+  Widget _buildDrawer() {
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: const BoxDecoration(color: Color(0xFF009688)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  FirebaseAuth.instance.currentUser?.email ?? 'User',
+                  style: const TextStyle(color: Colors.white, fontSize: 20),
+                ),
+                const Text(
+                  'My Diary',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.person),
+            title: const Text('Profile'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProfilePage(
+                    isDarkMode: widget.isDarkMode,
+                    onToggleTheme: widget.onToggleTheme,
+                  ),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text('Settings'),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SettingsPage(
+                    isDarkMode: widget.isDarkMode,
+                    onToggleTheme: widget.onToggleTheme,
+                  ),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.search),
+            title: const Text('Search Diary'),
+            onTap: () {
+              Navigator.pop(context);
+              setState(() {
+                _isSearching = !_isSearching;
+                if (!_isSearching) {
+                  _searchQuery = '';
+                  _searchCtrl.clear();
+                }
+              });
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Logout'),
+            onTap: () {
+              Navigator.pop(context);
+              _handleLogout();
+            },
+          ),
+          ListTile(
+            leading: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            title: Text(widget.isDarkMode ? 'Light Mode' : 'Dark Mode'),
+            onTap: () {
+              Navigator.pop(context);
+              _toggleTheme();
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // -------------------- Date Format --------------------
+  String _formatDate(DateTime date) => DateFormat('dd MMM yyyy, HH:mm').format(date);
+
+  // -------------------- Build --------------------
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
+      drawer: _buildDrawer(),
       backgroundColor: isDark ? Colors.black : const Color(0xFFE8F5E9),
       appBar: AppBar(
-        title: Text(
-          "${user?.email?.split('@')[0] ?? 'My'} Diary",
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: _isSearching
+            ? TextField(
+                controller: _searchCtrl,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Search diary...',
+                  hintStyle: TextStyle(color: Colors.white70),
+                  border: InputBorder.none,
+                  prefixIcon: Icon(Icons.search, color: Colors.white),
+                  suffixIcon: IconButton(
+                    icon: Icon(Icons.close, color: Colors.white),
+                    onPressed: () {
+                      setState(() {
+                        _isSearching = false;
+                        _searchQuery = '';
+                        _searchCtrl.clear();
+                      });
+                    },
+                  ),
+                ),
+                style: const TextStyle(color: Colors.white),
+                onChanged: (value) => setState(() => _searchQuery = value),
+              )
+            : Text(
+                "${user?.email?.split('@')[0] ?? 'My'} Diary",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
         backgroundColor: const Color(0xFF009688),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -451,17 +538,24 @@ class HomePageState extends State<HomePage> {
               ),
             ),
           ],
-          IconButton(
-            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-            onPressed: _toggleTheme,
-            color: Colors.white,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            tooltip: 'Logout',
-            onPressed: _handleLogout,
-            color: Colors.white,
-          ),
+          if (!_isSearching) ...[
+            IconButton(
+              icon: const Icon(Icons.search),
+              onPressed: () => setState(() => _isSearching = true),
+              color: Colors.white,
+            ),
+            IconButton(
+              icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+              onPressed: _toggleTheme,
+              color: Colors.white,
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout_rounded),
+              tooltip: 'Logout',
+              onPressed: _handleLogout,
+              color: Colors.white,
+            ),
+          ],
         ],
       ),
       body: Column(
@@ -489,13 +583,9 @@ class HomePageState extends State<HomePage> {
               children: [
                 const Text(
                   "Create New Diary",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
-                // Feeling Dropdown with Emoji
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
@@ -510,19 +600,14 @@ class HomePageState extends State<HomePage> {
                           value: f,
                           child: Row(
                             children: [
-                              Text(
-                                _feelingEmojis[f]!,
-                                style: const TextStyle(fontSize: 24),
-                              ),
+                              _getFeelingWidget(f, size: 32),
                               const SizedBox(width: 8),
                               Text(f),
                             ],
                           ),
                         );
                       }).toList(),
-                      onChanged: (val) {
-                        setState(() => _selectedFeeling = val!);
-                      },
+                      onChanged: (val) => setState(() => _selectedFeeling = val!),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         hintText: "How are you feeling?",
@@ -531,12 +616,8 @@ class HomePageState extends State<HomePage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // Big emoji display
-                Center(
-                  child: _getFeelingEmoji(_selectedFeeling, size: 80),
-                ),
+                Center(child: _getFeelingWidget(_selectedFeeling, size: 80)),
                 const SizedBox(height: 8),
-                // Description with Voice
                 Container(
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey.shade300),
@@ -550,10 +631,7 @@ class HomePageState extends State<HomePage> {
                           decoration: const InputDecoration(
                             border: InputBorder.none,
                             hintText: "What's on your mind?",
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 14,
-                            ),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                           ),
                           maxLines: null,
                           minLines: 2,
@@ -572,25 +650,18 @@ class HomePageState extends State<HomePage> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // Save Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _saveDiary,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF009688),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: const Text(
                       "💾 Save Diary",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ),
@@ -609,9 +680,7 @@ class HomePageState extends State<HomePage> {
               builder: (ctx, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF009688),
-                    ),
+                    child: CircularProgressIndicator(color: Color(0xFF009688)),
                   );
                 }
                 if (snapshot.hasError) {
@@ -636,41 +705,46 @@ class HomePageState extends State<HomePage> {
                       children: [
                         Icon(Icons.book, size: 60, color: Colors.grey),
                         SizedBox(height: 16),
-                        Text(
-                          "No diary entries yet",
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
+                        Text("No diary entries yet", style: TextStyle(fontSize: 16, color: Colors.grey)),
                         SizedBox(height: 8),
-                        Text(
-                          "Start writing your first entry above ✨",
-                          style: TextStyle(fontSize: 14, color: Colors.grey),
-                        ),
+                        Text("Start writing your first entry above ✨", style: TextStyle(fontSize: 14, color: Colors.grey)),
                       ],
                     ),
                   );
                 }
 
                 final docs = snapshot.data!.docs;
+                final filteredDocs = _searchQuery.isEmpty
+                    ? docs
+                    : docs.where((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        final desc = data['description']?.toString() ?? '';
+                        final feeling = data['feeling']?.toString() ?? '';
+                        return desc.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                            feeling.toLowerCase().contains(_searchQuery.toLowerCase());
+                      }).toList();
+
+                if (filteredDocs.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      'No entries match your search',
+                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                    ),
+                  );
+                }
+
                 return RefreshIndicator(
-                  onRefresh: () async {
-                    setState(() {});
-                  },
+                  onRefresh: () async => setState(() {}),
                   child: ListView.builder(
                     padding: const EdgeInsets.all(12),
-                    itemCount: docs.length,
+                    itemCount: filteredDocs.length,
                     itemBuilder: (ctx, i) {
-                      final diary = docs[i];
+                      final diary = filteredDocs[i];
                       final data = diary.data() as Map<String, dynamic>;
-                      
-                      // Safe get data with null check
                       final feeling = data['feeling']?.toString() ?? "Happy";
                       final description = data['description']?.toString() ?? "";
                       final timestamp = data['createdAt'] as Timestamp?;
-                      final date = timestamp != null
-                          ? timestamp.toDate()
-                          : DateTime.now();
-                      
-                      // Safe get location and weather
+                      final date = timestamp != null ? timestamp.toDate() : DateTime.now();
                       final location = data['location']?.toString() ?? "";
                       final weather = data['weather']?.toString() ?? "";
 
@@ -694,77 +768,42 @@ class HomePageState extends State<HomePage> {
                           children: [
                             Row(
                               children: [
-                                // Emoji
-                                Text(
-                                  _feelingEmojis[feeling] ?? '😊',
-                                  style: const TextStyle(fontSize: 30),
-                                ),
+                                _getFeelingWidget(feeling, size: 30),
                                 const SizedBox(width: 10),
-                                // Feeling and Date
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         feeling,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                        ),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                                       ),
                                       Text(
                                         _formatDate(date),
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey.shade500,
-                                        ),
+                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                                       ),
                                     ],
                                   ),
                                 ),
-                                // EDIT BUTTON
                                 IconButton(
-                                  icon: Icon(
-                                    Icons.edit,
-                                    color: Colors.blue.shade600,
-                                    size: 22,
-                                  ),
-                                  onPressed: () => _editDiary(
-                                    diary.id,
-                                    feeling,
-                                    description,
-                                  ),
+                                  icon: Icon(Icons.edit, color: Colors.blue.shade600, size: 22),
+                                  onPressed: () => _editDiary(diary.id, feeling, description),
                                   tooltip: 'Edit',
                                 ),
-                                // DELETE BUTTON - with confirmation
                                 IconButton(
-                                  icon: Icon(
-                                    Icons.delete,
-                                    color: Colors.red.shade600,
-                                    size: 22,
-                                  ),
-                                  onPressed: () => _confirmDelete(
-                                    diary.id,
-                                    data,
-                                  ),
+                                  icon: Icon(Icons.delete, color: Colors.red.shade600, size: 22),
+                                  onPressed: () => _confirmDelete(diary.id, data),
                                   tooltip: 'Delete',
                                 ),
                               ],
                             ),
                             const SizedBox(height: 8),
-                            Text(
-                              description,
-                              style: const TextStyle(fontSize: 14, height: 1.4),
-                            ),
-                            // Location & Weather badges
+                            Text(description, style: const TextStyle(fontSize: 14, height: 1.4)),
                             if (location.isNotEmpty || weather.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF009688).withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
@@ -773,24 +812,11 @@ class HomePageState extends State<HomePage> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       if (weather.isNotEmpty)
-                                        Text(
-                                          weather,
-                                          style: const TextStyle(fontSize: 11),
-                                        ),
+                                        Text(weather, style: const TextStyle(fontSize: 11)),
                                       if (location.isNotEmpty) ...[
                                         const SizedBox(width: 4),
-                                        Icon(
-                                          Icons.location_on,
-                                          size: 12,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                        Text(
-                                          location,
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
+                                        Icon(Icons.location_on, size: 12, color: Colors.grey.shade600),
+                                        Text(location, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
                                       ],
                                     ],
                                   ),

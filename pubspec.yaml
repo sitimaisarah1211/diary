@@ -11,34 +11,18 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Firebase
   firebase_core: 4.11.0
   firebase_auth: 6.5.4
   cloud_firestore: 6.6.0
   firebase_messaging: 16.4.1
 
-  # Biometric
   local_auth: ^2.1.7
-
-  # Local storage
   shared_preferences: ^2.2.2
-
-  # Voice input
   speech_to_text: 7.4.0
-
-  # Permissions
   permission_handler: ^11.3.1
-
-  # Date formatting
   intl: ^0.19.0
-
-  # HTTP for weather
   http: ^1.2.1
-
-  # Location for GPS
   geolocator: ^10.1.0
-
-  # For better UI
   flutter_slidable: ^3.0.0
 
 dev_dependencies:

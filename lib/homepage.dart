@@ -10,6 +10,10 @@ import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
+// ✅ NEW IMPORTS FOR PROFILE & SETTINGS
+import 'profile_page.dart';
+import 'settings_page.dart';
+
 part 'homepage_state.dart';
 
 class HomePage extends StatefulWidget {
