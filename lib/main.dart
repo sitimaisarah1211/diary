@@ -3,12 +3,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'splash_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'localization.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await AppLocalizations.loadLanguage();
   runApp(const MyApp());
 }
 
@@ -44,10 +46,14 @@ class _MyAppState extends State<MyApp> {
     await prefs.setBool('isDarkMode', _isDarkMode);
   }
 
+  void _refreshApp() {
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Siti Maisarah Diary',
+      title: AppLocalizations.translate('app_title'),
       debugShowCheckedModeBanner: false,
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
@@ -61,6 +67,7 @@ class _MyAppState extends State<MyApp> {
       home: SplashScreen(
         isDarkMode: _isDarkMode,
         onToggleTheme: _toggleTheme,
+        onLanguageChange: _refreshApp,
       ),
     );
   }

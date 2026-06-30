@@ -8,11 +8,11 @@ class HomePageState extends State<HomePage> {
   String _selectedFeeling = "Happy";
   final List<String> _feelings = ["Happy", "Sad", "Angry", "Excited", "Amazed"];
 
-  // Fallback emojis
+  // Fallback emojis – changed Sad and Angry
   final Map<String, String> _feelingEmojis = {
     "Happy": "😊",
-    "Sad": "😢",
-    "Angry": "😡",
+    "Sad": "😭",
+    "Angry": "🤬",
     "Excited": "🤩",
     "Amazed": "😲",
   };
@@ -44,41 +44,54 @@ class HomePageState extends State<HomePage> {
     _getLocation();
   }
 
-  // -------------------- Location & Weather --------------------
+  // -------------------- Location (FIXED) --------------------
   Future<void> _getLocation() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        setState(() => _location = "Location disabled");
+        setState(() => _location = AppLocalizations.translate('location_disabled'));
         return;
       }
+
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          setState(() => _location = "Permission denied");
+          setState(() => _location = AppLocalizations.translate('permission_denied'));
           return;
         }
       }
+
       if (permission == LocationPermission.deniedForever) {
-        setState(() => _location = "Permission denied forever");
+        setState(() => _location = AppLocalizations.translate('permission_forever'));
         return;
       }
-      Position position = await Geolocator.getCurrentPosition();
+
+      // ✅ FIXED: only desiredAccuracy (no distanceFilter)
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.best,
+      );
       setState(() {
         _location = "${position.latitude.toStringAsFixed(2)}, ${position.longitude.toStringAsFixed(2)}";
       });
     } catch (e) {
-      setState(() => _location = "Unable to get location");
+      setState(() => _location = AppLocalizations.translate('unable_location'));
     }
   }
 
+  // -------------------- Weather (FIXED) --------------------
   Future<void> _fetchWeather() async {
     try {
       Position? position;
       try {
-        position = await Geolocator.getCurrentPosition();
-      } catch (e) {}
+        // ✅ FIXED: only desiredAccuracy
+        position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best,
+        );
+      } catch (e) {
+        // ignore: empty_catches
+        // Fallback to default location if GPS fails
+      }
       String url;
       if (position != null) {
         url = 'https://api.open-meteo.com/v1/forecast?latitude=${position.latitude}&longitude=${position.longitude}&current_weather=true';
@@ -103,15 +116,8 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  String _getWeatherCondition(int code) {
-    if (code == 0) return 'Clear';
-    if (code <= 3) return 'Partly Cloudy';
-    if (code <= 49) return 'Foggy';
-    if (code <= 69) return 'Rainy';
-    if (code <= 79) return 'Snowy';
-    if (code <= 99) return 'Thunderstorm';
-    return 'Unknown';
-  }
+  // ✅ REMOVED unused _getWeatherCondition
+  // String _getWeatherCondition(int code) { ... }
 
   String _getWeatherIcon(int code) {
     if (code == 0) return '☀️';
@@ -134,6 +140,7 @@ class HomePageState extends State<HomePage> {
         builder: (context) => LoginPage(
           isDarkMode: widget.isDarkMode,
           onToggleTheme: widget.onToggleTheme,
+          onLanguageChange: widget.onLanguageChange,
         ),
       ),
     );
@@ -163,15 +170,15 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  // -------------------- CRUD Operations --------------------
+  // -------------------- CRUD Operations (translated) --------------------
   Future<void> _saveDiary() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     if (_descCtrl.text.trim().isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please enter a description"),
+        SnackBar(
+          content: Text(AppLocalizations.translate('please_enter_description')),
           backgroundColor: Colors.orange,
         ),
       );
@@ -190,10 +197,10 @@ class HomePageState extends State<HomePage> {
       setState(() => _selectedFeeling = "Happy");
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("✨ Diary saved successfully!"),
+        SnackBar(
+          content: Text(AppLocalizations.translate('diary_saved')),
           backgroundColor: Colors.green,
-          duration: Duration(seconds: 1),
+          duration: const Duration(seconds: 1),
         ),
       );
     } catch (e) {
@@ -211,13 +218,13 @@ class HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("🗑️ Delete Entry"),
-        content: const Text("Are you sure you want to delete this diary entry?"),
+        title: Text(AppLocalizations.translate('delete_title')),
+        content: Text(AppLocalizations.translate('delete_confirm')),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text("No", style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(AppLocalizations.translate('no'), style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -228,7 +235,7 @@ class HomePageState extends State<HomePage> {
               Navigator.pop(ctx);
               _deleteDiary(id, data);
             },
-            child: const Text("Yes", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(AppLocalizations.translate('yes'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -239,20 +246,20 @@ class HomePageState extends State<HomePage> {
     FirebaseFirestore.instance.collection("diaries").doc(id).delete();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text("🗑️ Entry deleted"),
+        content: Text(AppLocalizations.translate('entry_deleted')),
         backgroundColor: Colors.red.shade700,
         duration: const Duration(seconds: 3),
         action: SnackBarAction(
-          label: "UNDO",
+          label: AppLocalizations.translate('no'),
           textColor: Colors.white,
           onPressed: () async {
             await FirebaseFirestore.instance.collection("diaries").add(data);
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("✅ Entry restored!"),
+              SnackBar(
+                content: Text(AppLocalizations.translate('entry_restored')),
                 backgroundColor: Colors.green,
-                duration: Duration(seconds: 1),
+                duration: const Duration(seconds: 1),
               ),
             );
           },
@@ -268,7 +275,7 @@ class HomePageState extends State<HomePage> {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text("✏️ Edit Diary"),
+          title: Text(AppLocalizations.translate('edit_diary')),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -295,9 +302,9 @@ class HomePageState extends State<HomePage> {
                       );
                     }).toList(),
                     onChanged: (val) => newFeeling = val!,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       border: InputBorder.none,
-                      hintText: "Feeling",
+                      hintText: AppLocalizations.translate('feeling'),
                     ),
                   ),
                 ),
@@ -305,9 +312,9 @@ class HomePageState extends State<HomePage> {
               const SizedBox(height: 12),
               TextField(
                 controller: descCtrl,
-                decoration: const InputDecoration(
-                  labelText: "Description",
-                  border: OutlineInputBorder(
+                decoration: InputDecoration(
+                  labelText: AppLocalizations.translate('description'),
+                  border: const OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(10)),
                   ),
                 ),
@@ -317,7 +324,10 @@ class HomePageState extends State<HomePage> {
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(AppLocalizations.translate('cancel')),
+            ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF009688),
@@ -327,8 +337,8 @@ class HomePageState extends State<HomePage> {
                 if (descCtrl.text.trim().isEmpty) {
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("Please enter a description"),
+                    SnackBar(
+                      content: Text(AppLocalizations.translate('please_enter_description')),
                       backgroundColor: Colors.orange,
                     ),
                   );
@@ -344,14 +354,14 @@ class HomePageState extends State<HomePage> {
                 Navigator.pop(ctx);
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("✅ Entry updated!"),
+                  SnackBar(
+                    content: Text(AppLocalizations.translate('entry_updated')),
                     backgroundColor: Colors.green,
-                    duration: Duration(seconds: 1),
+                    duration: const Duration(seconds: 1),
                   ),
                 );
               },
-              child: const Text("Update", style: TextStyle(color: Colors.white)),
+              child: Text(AppLocalizations.translate('update'), style: const TextStyle(color: Colors.white)),
             ),
           ],
         );
@@ -382,7 +392,7 @@ class HomePageState extends State<HomePage> {
     } else {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Speech recognition not available")),
+        SnackBar(content: Text(AppLocalizations.translate('speech_unavailable'))),
       );
     }
   }
@@ -408,16 +418,16 @@ class HomePageState extends State<HomePage> {
                   FirebaseAuth.instance.currentUser?.email ?? 'User',
                   style: const TextStyle(color: Colors.white, fontSize: 20),
                 ),
-                const Text(
-                  'My Diary',
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
+                Text(
+                  AppLocalizations.translate('app_title'),
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
           ),
           ListTile(
             leading: const Icon(Icons.person),
-            title: const Text('Profile'),
+            title: Text(AppLocalizations.translate('profile')),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -426,6 +436,7 @@ class HomePageState extends State<HomePage> {
                   builder: (context) => ProfilePage(
                     isDarkMode: widget.isDarkMode,
                     onToggleTheme: widget.onToggleTheme,
+                    onLanguageChange: widget.onLanguageChange,
                   ),
                 ),
               );
@@ -433,7 +444,7 @@ class HomePageState extends State<HomePage> {
           ),
           ListTile(
             leading: const Icon(Icons.settings),
-            title: const Text('Settings'),
+            title: Text(AppLocalizations.translate('settings')),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(
@@ -442,6 +453,7 @@ class HomePageState extends State<HomePage> {
                   builder: (context) => SettingsPage(
                     isDarkMode: widget.isDarkMode,
                     onToggleTheme: widget.onToggleTheme,
+                    onLanguageChange: widget.onLanguageChange,
                   ),
                 ),
               );
@@ -449,7 +461,7 @@ class HomePageState extends State<HomePage> {
           ),
           ListTile(
             leading: const Icon(Icons.search),
-            title: const Text('Search Diary'),
+            title: Text(AppLocalizations.translate('search_diary')),
             onTap: () {
               Navigator.pop(context);
               setState(() {
@@ -463,7 +475,7 @@ class HomePageState extends State<HomePage> {
           ),
           ListTile(
             leading: const Icon(Icons.logout),
-            title: const Text('Logout'),
+            title: Text(AppLocalizations.translate('logout')),
             onTap: () {
               Navigator.pop(context);
               _handleLogout();
@@ -471,7 +483,7 @@ class HomePageState extends State<HomePage> {
           ),
           ListTile(
             leading: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
-            title: Text(widget.isDarkMode ? 'Light Mode' : 'Dark Mode'),
+            title: Text(widget.isDarkMode ? AppLocalizations.translate('light_mode') : AppLocalizations.translate('dark_mode')),
             onTap: () {
               Navigator.pop(context);
               _toggleTheme();
@@ -500,7 +512,7 @@ class HomePageState extends State<HomePage> {
                 controller: _searchCtrl,
                 autofocus: true,
                 decoration: InputDecoration(
-                  hintText: 'Search diary...',
+                  hintText: AppLocalizations.translate('search_hint'),
                   hintStyle: TextStyle(color: Colors.white70),
                   border: InputBorder.none,
                   prefixIcon: Icon(Icons.search, color: Colors.white),
@@ -551,7 +563,7 @@ class HomePageState extends State<HomePage> {
             ),
             IconButton(
               icon: const Icon(Icons.logout_rounded),
-              tooltip: 'Logout',
+              tooltip: AppLocalizations.translate('logout'),
               onPressed: _handleLogout,
               color: Colors.white,
             ),
@@ -581,9 +593,9 @@ class HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  "Create New Diary",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                Text(
+                  AppLocalizations.translate('create_diary'),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 12),
                 Container(
@@ -608,9 +620,9 @@ class HomePageState extends State<HomePage> {
                         );
                       }).toList(),
                       onChanged: (val) => setState(() => _selectedFeeling = val!),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         border: InputBorder.none,
-                        hintText: "How are you feeling?",
+                        hintText: AppLocalizations.translate('how_feeling'),
                       ),
                     ),
                   ),
@@ -628,10 +640,10 @@ class HomePageState extends State<HomePage> {
                       Expanded(
                         child: TextField(
                           controller: _descCtrl,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             border: InputBorder.none,
-                            hintText: "What's on your mind?",
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            hintText: AppLocalizations.translate('whats_mind'),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                           ),
                           maxLines: null,
                           minLines: 2,
@@ -659,9 +671,9 @@ class HomePageState extends State<HomePage> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text(
-                      "💾 Save Diary",
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                    child: Text(
+                      AppLocalizations.translate('save_diary'),
+                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ),
@@ -691,7 +703,7 @@ class HomePageState extends State<HomePage> {
                         Icon(Icons.error_outline, size: 60, color: Colors.red.shade300),
                         const SizedBox(height: 16),
                         Text(
-                          "Error loading entries",
+                          AppLocalizations.translate('error_loading'),
                           style: TextStyle(color: Colors.grey.shade600),
                         ),
                       ],
@@ -699,15 +711,21 @@ class HomePageState extends State<HomePage> {
                   );
                 }
                 if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.book, size: 60, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text("No diary entries yet", style: TextStyle(fontSize: 16, color: Colors.grey)),
-                        SizedBox(height: 8),
-                        Text("Start writing your first entry above ✨", style: TextStyle(fontSize: 14, color: Colors.grey)),
+                        const SizedBox(height: 16),
+                        Text(
+                          AppLocalizations.translate('no_entries'),
+                          style: const TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          AppLocalizations.translate('start_writing'),
+                          style: const TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
                       ],
                     ),
                   );
@@ -725,10 +743,10 @@ class HomePageState extends State<HomePage> {
                       }).toList();
 
                 if (filteredDocs.isEmpty) {
-                  return const Center(
+                  return Center(
                     child: Text(
-                      'No entries match your search',
-                      style: TextStyle(fontSize: 16, color: Colors.grey),
+                      AppLocalizations.translate('no_match'),
+                      style: const TextStyle(fontSize: 16, color: Colors.grey),
                     ),
                   );
                 }
@@ -788,12 +806,12 @@ class HomePageState extends State<HomePage> {
                                 IconButton(
                                   icon: Icon(Icons.edit, color: Colors.blue.shade600, size: 22),
                                   onPressed: () => _editDiary(diary.id, feeling, description),
-                                  tooltip: 'Edit',
+                                  tooltip: AppLocalizations.translate('edit_diary'),
                                 ),
                                 IconButton(
                                   icon: Icon(Icons.delete, color: Colors.red.shade600, size: 22),
                                   onPressed: () => _confirmDelete(diary.id, data),
-                                  tooltip: 'Delete',
+                                  tooltip: AppLocalizations.translate('delete_title'),
                                 ),
                               ],
                             ),

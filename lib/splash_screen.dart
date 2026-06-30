@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'login_page.dart';
+import 'localization.dart';
 
 class SplashScreen extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
+  final VoidCallback onLanguageChange;
 
   const SplashScreen({
     super.key,
     required this.isDarkMode,
     required this.onToggleTheme,
+    required this.onLanguageChange,
   });
 
   @override
@@ -26,6 +29,7 @@ class _SplashScreenState extends State<SplashScreen> {
           builder: (context) => LoginPage(
             isDarkMode: widget.isDarkMode,
             onToggleTheme: widget.onToggleTheme,
+            onLanguageChange: widget.onLanguageChange,
           ),
         ),
       );
@@ -35,7 +39,6 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDarkMode;
-
     return Scaffold(
       backgroundColor: isDark ? Colors.black : const Color(0xFF009688),
       body: Center(
@@ -63,7 +66,7 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 30),
             Text(
-              'My Diary',
+              AppLocalizations.translate('app_title'),
               style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
