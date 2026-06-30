@@ -8,16 +8,15 @@ class HomePageState extends State<HomePage> {
   String _selectedFeeling = "Happy";
   final List<String> _feelings = ["Happy", "Sad", "Angry", "Excited", "Amazed"];
 
-  // Fallback emojis – changed Sad and Angry
+  // ✅ EMOJI FIXED - bezanya jelas
   final Map<String, String> _feelingEmojis = {
     "Happy": "😊",
-    "Sad": "😭",
-    "Angry": "🤬",
+    "Sad": "😢",     // sedih - air mata
+    "Angry": "😠",   // marah - muka merah
     "Excited": "🤩",
     "Amazed": "😲",
   };
 
-  // GIF asset paths
   final Map<String, String> _feelingGifs = {
     "Happy": "assets/images/happy.gif",
     "Sad": "assets/images/sad.gif",
@@ -26,13 +25,11 @@ class HomePageState extends State<HomePage> {
     "Amazed": "assets/images/amazed.gif",
   };
 
-  // Weather & Location
   String _temperature = "--°C";
   String _weatherIcon = "☀️";
   bool _isLoadingWeather = true;
   String _location = "Unknown";
 
-  // Search
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   bool _isSearching = false;
@@ -42,9 +39,43 @@ class HomePageState extends State<HomePage> {
     super.initState();
     _fetchWeather();
     _getLocation();
+    _setupFCM();
   }
 
-  // -------------------- Location (FIXED) --------------------
+  // -------------------- FCM Setup --------------------
+  void _setupFCM() async {
+    final fcm = FirebaseMessaging.instance;
+    NotificationSettings settings = await fcm.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    if (settings.authorizationStatus != AuthorizationStatus.authorized) {
+      print('Notifikasi tidak dibenarkan');
+      return;
+    }
+    String? token = await fcm.getToken();
+    print('FCM Token: $token');
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && token != null) {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+        'fcmToken': token,
+      }, SetOptions(merge: true));
+    }
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message.notification?.body ?? 'Notifikasi baharu'),
+            backgroundColor: Colors.teal,
+          ),
+        );
+      }
+    });
+  }
+
+  // -------------------- Location & Weather --------------------
   Future<void> _getLocation() async {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
@@ -52,7 +83,6 @@ class HomePageState extends State<HomePage> {
         setState(() => _location = AppLocalizations.translate('location_disabled'));
         return;
       }
-
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -61,13 +91,10 @@ class HomePageState extends State<HomePage> {
           return;
         }
       }
-
       if (permission == LocationPermission.deniedForever) {
         setState(() => _location = AppLocalizations.translate('permission_forever'));
         return;
       }
-
-      // ✅ FIXED: only desiredAccuracy (no distanceFilter)
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.best,
       );
@@ -79,19 +106,14 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  // -------------------- Weather (FIXED) --------------------
   Future<void> _fetchWeather() async {
     try {
       Position? position;
       try {
-        // ✅ FIXED: only desiredAccuracy
         position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.best,
         );
-      } catch (e) {
-        // ignore: empty_catches
-        // Fallback to default location if GPS fails
-      }
+      } catch (_) {}
       String url;
       if (position != null) {
         url = 'https://api.open-meteo.com/v1/forecast?latitude=${position.latitude}&longitude=${position.longitude}&current_weather=true';
@@ -115,9 +137,6 @@ class HomePageState extends State<HomePage> {
       });
     }
   }
-
-  // ✅ REMOVED unused _getWeatherCondition
-  // String _getWeatherCondition(int code) { ... }
 
   String _getWeatherIcon(int code) {
     if (code == 0) return '☀️';
@@ -146,7 +165,7 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  // -------------------- Helper: GIF or Emoji --------------------
+  // -------------------- Helper: GIF/Emoji --------------------
   Widget _getFeelingWidget(String feeling, {double size = 60}) {
     final assetPath = _feelingGifs[feeling];
     if (assetPath != null) {
@@ -170,7 +189,7 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  // -------------------- CRUD Operations (translated) --------------------
+  // -------------------- CRUD Operations (with Trash) --------------------
   Future<void> _saveDiary() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -214,6 +233,47 @@ class HomePageState extends State<HomePage> {
     }
   }
 
+  void _deleteDiary(String id, Map<String, dynamic> data) async {
+    data['deletedAt'] = FieldValue.serverTimestamp();
+    await FirebaseFirestore.instance.collection('deleted_diaries').doc(id).set(data);
+    await FirebaseFirestore.instance.collection('diaries').doc(id).delete();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.translate('entry_deleted')),
+          backgroundColor: Colors.red.shade700,
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: AppLocalizations.translate('undo'),
+            textColor: Colors.white,
+            onPressed: () async {
+              final deletedDoc = await FirebaseFirestore.instance
+                  .collection('deleted_diaries')
+                  .doc(id)
+                  .get();
+              if (deletedDoc.exists) {
+                final restoredData = deletedDoc.data()!;
+                restoredData.remove('deletedAt');
+                await FirebaseFirestore.instance.collection('diaries').doc(id).set(restoredData);
+                await FirebaseFirestore.instance.collection('deleted_diaries').doc(id).delete();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(AppLocalizations.translate('entry_restored')),
+                      backgroundColor: Colors.green,
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                }
+              }
+            },
+          ),
+        ),
+      );
+    }
+  }
+
   void _confirmDelete(String id, Map<String, dynamic> data) {
     showDialog(
       context: context,
@@ -224,7 +284,10 @@ class HomePageState extends State<HomePage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(AppLocalizations.translate('no'), style: const TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(
+              AppLocalizations.translate('cancel'),
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -235,35 +298,12 @@ class HomePageState extends State<HomePage> {
               Navigator.pop(ctx);
               _deleteDiary(id, data);
             },
-            child: Text(AppLocalizations.translate('yes'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(
+              AppLocalizations.translate('yes'),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _deleteDiary(String id, Map<String, dynamic> data) {
-    FirebaseFirestore.instance.collection("diaries").doc(id).delete();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(AppLocalizations.translate('entry_deleted')),
-        backgroundColor: Colors.red.shade700,
-        duration: const Duration(seconds: 3),
-        action: SnackBarAction(
-          label: AppLocalizations.translate('no'),
-          textColor: Colors.white,
-          onPressed: () async {
-            await FirebaseFirestore.instance.collection("diaries").add(data);
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(AppLocalizations.translate('entry_restored')),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 1),
-              ),
-            );
-          },
-        ),
       ),
     );
   }
@@ -361,7 +401,10 @@ class HomePageState extends State<HomePage> {
                   ),
                 );
               },
-              child: Text(AppLocalizations.translate('update'), style: const TextStyle(color: Colors.white)),
+              child: Text(
+                AppLocalizations.translate('update'),
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           ],
         );
@@ -400,6 +443,61 @@ class HomePageState extends State<HomePage> {
   void _stopVoiceSearch() {
     _speech.stop();
     if (mounted) setState(() => _isListening = false);
+  }
+
+  // -------------------- Statistik Mood --------------------
+  void _showMoodStats() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('diaries')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+      final feelings = snapshot.docs.map((doc) => doc['feeling']?.toString() ?? 'Unknown').toList();
+      if (feelings.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Tiada data statistik'), backgroundColor: Colors.grey),
+          );
+        }
+        return;
+      }
+      final counts = <String, int>{};
+      for (var f in feelings) {
+        counts[f] = (counts[f] ?? 0) + 1;
+      }
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: Text(AppLocalizations.translate('mood_stats')),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: counts.entries.map((e) => 
+                ListTile(
+                  leading: _getFeelingWidget(e.key, size: 30),
+                  title: Text('${e.key}: ${e.value}'),
+                )
+              ).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(_),
+              child: Text(AppLocalizations.translate('ok')),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ralat: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 
   // -------------------- Build Drawer --------------------
@@ -460,6 +558,31 @@ class HomePageState extends State<HomePage> {
             },
           ),
           ListTile(
+            leading: const Icon(Icons.delete_outline),
+            title: Text(AppLocalizations.translate('trash')),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => TrashPage(
+                    isDarkMode: widget.isDarkMode,
+                    onToggleTheme: widget.onToggleTheme,
+                    onLanguageChange: widget.onLanguageChange,
+                  ),
+                ),
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.bar_chart),
+            title: Text(AppLocalizations.translate('mood_stats')),
+            onTap: () {
+              Navigator.pop(context);
+              _showMoodStats();
+            },
+          ),
+          ListTile(
             leading: const Icon(Icons.search),
             title: Text(AppLocalizations.translate('search_diary')),
             onTap: () {
@@ -494,7 +617,7 @@ class HomePageState extends State<HomePage> {
     );
   }
 
-  // -------------------- Date Format --------------------
+  // -------------------- Format Date --------------------
   String _formatDate(DateTime date) => DateFormat('dd MMM yyyy, HH:mm').format(date);
 
   // -------------------- Build --------------------
@@ -551,6 +674,11 @@ class HomePageState extends State<HomePage> {
             ),
           ],
           if (!_isSearching) ...[
+            IconButton(
+              icon: const Icon(Icons.bar_chart),
+              onPressed: _showMoodStats,
+              color: Colors.white,
+            ),
             IconButton(
               icon: const Icon(Icons.search),
               onPressed: () => setState(() => _isSearching = true),
@@ -817,7 +945,8 @@ class HomePageState extends State<HomePage> {
                             ),
                             const SizedBox(height: 8),
                             Text(description, style: const TextStyle(fontSize: 14, height: 1.4)),
-                            if (location.isNotEmpty || weather.isNotEmpty)
+                            // ✅ LOCATION FIXED - hanya tunjuk location jika bukan error
+                            if (weather.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8),
                                 child: Container(
@@ -829,9 +958,11 @@ class HomePageState extends State<HomePage> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      if (weather.isNotEmpty)
-                                        Text(weather, style: const TextStyle(fontSize: 11)),
-                                      if (location.isNotEmpty) ...[
+                                      Text(weather, style: const TextStyle(fontSize: 11)),
+                                      if (location.isNotEmpty && 
+                                          !location.contains('Unable') && 
+                                          !location.contains('disabled') && 
+                                          !location.contains('denied')) ...[
                                         const SizedBox(width: 4),
                                         Icon(Icons.location_on, size: 12, color: Colors.grey.shade600),
                                         Text(location, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),

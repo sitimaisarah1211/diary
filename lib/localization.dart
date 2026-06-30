@@ -67,7 +67,7 @@ class AppLocalizations {
         'permission_forever': 'Permission denied forever',
         'unable_location': 'Unable to get location',
         'weather_unavailable': 'Weather unavailable',
-        'entry_deleted': 'Entry deleted',
+        'entry_deleted': 'Entry moved to trash',
         'entry_restored': 'Entry restored!',
         'entry_updated': 'Entry updated!',
         'diary_saved': 'Diary saved successfully!',
@@ -76,6 +76,9 @@ class AppLocalizations {
         'no_match': 'No entries match your search',
         'error_loading': 'Error loading entries',
         'please_enter_description': 'Please enter a description',
+        'trash': 'Trash',
+        'mood_stats': 'Mood Statistics',
+        'undo': 'Undo',
       },
       'ms': {
         'app_title': 'Diari Saya',
@@ -123,7 +126,7 @@ class AppLocalizations {
         'permission_forever': 'Keizinan ditolak selama-lamanya',
         'unable_location': 'Tidak dapat mengesan lokasi',
         'weather_unavailable': 'Cuaca tidak tersedia',
-        'entry_deleted': 'Entri dipadam',
+        'entry_deleted': 'Entri dipindahkan ke tong sampah',
         'entry_restored': 'Entri dipulihkan!',
         'entry_updated': 'Entri dikemas kini!',
         'diary_saved': 'Diari berjaya disimpan!',
@@ -132,6 +135,9 @@ class AppLocalizations {
         'no_match': 'Tiada entri yang sepadan',
         'error_loading': 'Ralat memuatkan entri',
         'please_enter_description': 'Sila masukkan keterangan',
+        'trash': 'Tong Sampah',
+        'mood_stats': 'Statistik Perasaan',
+        'undo': 'Batal Padam',
       },
     };
 

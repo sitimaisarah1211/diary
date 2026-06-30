@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
 import 'splash_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'localization.dart';
+
+// Handler untuk mesej latar belakang
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  print('Mesej latar belakang: ${message.messageId}');
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -11,6 +21,16 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await AppLocalizations.loadLanguage();
+
+  // Inisialisasi FCM
+  final fcm = FirebaseMessaging.instance;
+  await fcm.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+  );
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
   runApp(const MyApp());
 }
 

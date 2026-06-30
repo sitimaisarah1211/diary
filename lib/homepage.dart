@@ -8,10 +8,11 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 import 'profile_page.dart';
 import 'settings_page.dart';
+import 'trash_page.dart';
 import 'localization.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 part 'homepage_state.dart';
 
