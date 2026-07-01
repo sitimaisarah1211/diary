@@ -8,11 +8,11 @@ class HomePageState extends State<HomePage> {
   String _selectedFeeling = "Happy";
   final List<String> _feelings = ["Happy", "Sad", "Angry", "Excited", "Amazed"];
 
-  // ✅ Updated emojis for clearer distinction
+  // ✅ Distinct emojis – Sad and Angry are now clearly different
   final Map<String, String> _feelingEmojis = {
     "Happy": "😊",
-    "Sad": "😔",     // changed from 😢
-    "Angry": "😡",   // changed from 😠
+    "Sad": "😔",
+    "Angry": "😡",
     "Excited": "🤩",
     "Amazed": "😲",
   };
@@ -189,7 +189,7 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  // -------------------- CRUD Operations (with Trash) --------------------
+  // -------------------- CRUD Operations (with Trash, no undo) --------------------
   Future<void> _saveDiary() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -233,7 +233,7 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  // ✅ UPDATED: Removed undo action, shortened duration
+  // ✅ No undo action – just a short notification
   void _deleteDiary(String id, Map<String, dynamic> data) async {
     data['deletedAt'] = FieldValue.serverTimestamp();
     await FirebaseFirestore.instance.collection('deleted_diaries').doc(id).set(data);
@@ -676,9 +676,9 @@ class HomePageState extends State<HomePage> {
       ),
       body: Column(
         children: [
-          // Create New Diary Section
+          // --- Create New Diary Section (height reduced to avoid overflow) ---
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: isDark ? Colors.grey[900] : Colors.white,
               borderRadius: const BorderRadius.only(
@@ -696,17 +696,18 @@ class HomePageState extends State<HomePage> {
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   AppLocalizations.translate('create_diary'),
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButtonFormField<String>(
@@ -716,8 +717,8 @@ class HomePageState extends State<HomePage> {
                           value: f,
                           child: Row(
                             children: [
-                              _getFeelingWidget(f, size: 32),
-                              const SizedBox(width: 8),
+                              _getFeelingWidget(f, size: 28),
+                              const SizedBox(width: 6),
                               Text(f),
                             ],
                           ),
@@ -727,17 +728,20 @@ class HomePageState extends State<HomePage> {
                       decoration: InputDecoration(
                         border: InputBorder.none,
                         hintText: AppLocalizations.translate('how_feeling'),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                Center(child: _getFeelingWidget(_selectedFeeling, size: 80)),
                 const SizedBox(height: 8),
+                Center(
+                  child: _getFeelingWidget(_selectedFeeling, size: 60), // reduced from 80
+                ),
+                const SizedBox(height: 6),
                 Container(
                   decoration: BoxDecoration(
                     border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
@@ -747,7 +751,7 @@ class HomePageState extends State<HomePage> {
                           decoration: InputDecoration(
                             border: InputBorder.none,
                             hintText: AppLocalizations.translate('whats_mind'),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                           ),
                           maxLines: null,
                           minLines: 2,
@@ -761,31 +765,32 @@ class HomePageState extends State<HomePage> {
                         ),
                         onPressed: _isListening ? _stopVoiceSearch : _startVoiceSearch,
                         tooltip: _isListening ? "Stop" : "Voice input",
+                        padding: const EdgeInsets.all(8),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _saveDiary,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF009688),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
                     child: Text(
                       AppLocalizations.translate('save_diary'),
-                      style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
-          // Diary Entries List
+          const SizedBox(height: 6),
+          // --- Diary Entries List ---
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -858,7 +863,7 @@ class HomePageState extends State<HomePage> {
                 return RefreshIndicator(
                   onRefresh: () async => setState(() {}),
                   child: ListView.builder(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(10),
                     itemCount: filteredDocs.length,
                     itemBuilder: (ctx, i) {
                       final diary = filteredDocs[i];
@@ -871,8 +876,8 @@ class HomePageState extends State<HomePage> {
                       final weather = data['weather']?.toString() ?? "";
 
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(16),
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: isDark ? Colors.grey[850] : Colors.white,
                           borderRadius: BorderRadius.circular(12),
@@ -890,57 +895,61 @@ class HomePageState extends State<HomePage> {
                           children: [
                             Row(
                               children: [
-                                _getFeelingWidget(feeling, size: 30),
-                                const SizedBox(width: 10),
+                                _getFeelingWidget(feeling, size: 28),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         feeling,
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                       ),
                                       Text(
                                         _formatDate(date),
-                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                                        style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
                                       ),
                                     ],
                                   ),
                                 ),
                                 IconButton(
-                                  icon: Icon(Icons.edit, color: Colors.blue.shade600, size: 22),
+                                  icon: Icon(Icons.edit, color: Colors.blue.shade600, size: 20),
                                   onPressed: () => _editDiary(diary.id, feeling, description),
                                   tooltip: AppLocalizations.translate('edit_diary'),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
                                 ),
                                 IconButton(
-                                  icon: Icon(Icons.delete, color: Colors.red.shade600, size: 22),
+                                  icon: Icon(Icons.delete, color: Colors.red.shade600, size: 20),
                                   onPressed: () => _confirmDelete(diary.id, data),
                                   tooltip: AppLocalizations.translate('delete_title'),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
-                            Text(description, style: const TextStyle(fontSize: 14, height: 1.4)),
+                            const SizedBox(height: 6),
+                            Text(description, style: const TextStyle(fontSize: 13, height: 1.3)),
                             if (weather.isNotEmpty)
                               Padding(
-                                padding: const EdgeInsets.only(top: 8),
+                                padding: const EdgeInsets.only(top: 6),
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFF009688).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text(weather, style: const TextStyle(fontSize: 11)),
+                                      Text(weather, style: const TextStyle(fontSize: 10)),
                                       if (location.isNotEmpty && 
                                           !location.contains('Unable') && 
                                           !location.contains('disabled') && 
                                           !location.contains('denied')) ...[
                                         const SizedBox(width: 4),
-                                        Icon(Icons.location_on, size: 12, color: Colors.grey.shade600),
-                                        Text(location, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                                        Icon(Icons.location_on, size: 10, color: Colors.grey.shade600),
+                                        Text(location, style: TextStyle(fontSize: 9, color: Colors.grey.shade600)),
                                       ],
                                     ],
                                   ),
