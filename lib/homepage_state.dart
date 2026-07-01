@@ -8,7 +8,7 @@ class HomePageState extends State<HomePage> {
   String _selectedFeeling = "Happy";
   final List<String> _feelings = ["Happy", "Sad", "Angry", "Excited", "Amazed"];
 
-  // ✅ Distinct emojis – Sad and Angry are now clearly different
+  // Emojis – clear distinction
   final Map<String, String> _feelingEmojis = {
     "Happy": "😊",
     "Sad": "😔",
@@ -17,12 +17,10 @@ class HomePageState extends State<HomePage> {
     "Amazed": "😲",
   };
 
+  // Hanya Happy sahaja ada GIF
   final Map<String, String> _feelingGifs = {
     "Happy": "assets/images/happy.gif",
-    "Sad": "assets/images/sad.gif",
-    "Angry": "assets/images/angry.gif",
-    "Excited": "assets/images/excited.gif",
-    "Amazed": "assets/images/amazed.gif",
+    // Tiada GIF untuk yang lain
   };
 
   String _temperature = "--°C";
@@ -167,26 +165,29 @@ class HomePageState extends State<HomePage> {
 
   // -------------------- Helper: GIF/Emoji --------------------
   Widget _getFeelingWidget(String feeling, {double size = 60}) {
-    final assetPath = _feelingGifs[feeling];
-    if (assetPath != null) {
-      return Image.asset(
-        assetPath,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (ctx, error, stack) {
-          return Text(
-            _feelingEmojis[feeling] ?? '😊',
-            style: TextStyle(fontSize: size),
-          );
-        },
-      );
-    } else {
-      return Text(
-        _feelingEmojis[feeling] ?? '😊',
-        style: TextStyle(fontSize: size),
-      );
+    // Hanya Happy sahaja yang guna GIF
+    if (feeling == "Happy" && _feelingGifs.containsKey(feeling)) {
+      final assetPath = _feelingGifs[feeling];
+      if (assetPath != null) {
+        return Image.asset(
+          assetPath,
+          width: size,
+          height: size,
+          fit: BoxFit.cover,
+          errorBuilder: (ctx, error, stack) {
+            return Text(
+              _feelingEmojis[feeling] ?? '😊',
+              style: TextStyle(fontSize: size),
+            );
+          },
+        );
+      }
     }
+    // Untuk semua feeling lain, guna emoji
+    return Text(
+      _feelingEmojis[feeling] ?? '😊',
+      style: TextStyle(fontSize: size),
+    );
   }
 
   // -------------------- CRUD Operations (with Trash, no undo) --------------------
@@ -676,7 +677,7 @@ class HomePageState extends State<HomePage> {
       ),
       body: Column(
         children: [
-          // --- Create New Diary Section (height reduced to avoid overflow) ---
+          // --- Create New Diary Section (reduced height) ---
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -735,7 +736,7 @@ class HomePageState extends State<HomePage> {
                 ),
                 const SizedBox(height: 8),
                 Center(
-                  child: _getFeelingWidget(_selectedFeeling, size: 60), // reduced from 80
+                  child: _getFeelingWidget(_selectedFeeling, size: 60),
                 ),
                 const SizedBox(height: 6),
                 Container(
