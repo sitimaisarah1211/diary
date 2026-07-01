@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'homepage.dart';
 import 'register_page.dart';
 import 'settings_page.dart';
@@ -30,12 +31,39 @@ class _LoginPageState extends State<LoginPage> {
   String _errorMessage = "";
   bool _obscurePassword = true;
 
+  // The specific email for biometric login
+  static const String BIOMETRIC_EMAIL = "sitimaisarahyushainey@gmail.com";
+  static const String PASSWORD_STORAGE_KEY = "biometric_password";
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-fill the email field with the biometric email
+    _emailCtrl.text = BIOMETRIC_EMAIL;
+    _loadSavedPassword();
+  }
+
+  Future<void> _loadSavedPassword() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedPass = prefs.getString(PASSWORD_STORAGE_KEY);
+    if (savedPass != null) {
+      _passCtrl.text = savedPass;
+    }
+  }
+
+  Future<void> _savePassword(String password) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(PASSWORD_STORAGE_KEY, password);
+  }
+
   Future<void> _loginWithEmail() async {
     try {
       await _auth.signInWithEmailAndPassword(
         email: _emailCtrl.text.trim(),
         password: _passCtrl.text.trim(),
       );
+      // Save the password for future biometric use
+      await _savePassword(_passCtrl.text.trim());
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -56,7 +84,7 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> _loginWithFingerprint() async {
     try {
       bool didAuthenticate = await _localAuth.authenticate(
-        localizedReason: 'Authenticate with fingerprint to login',
+        localizedReason: 'Authenticate with fingerprint to login as $BIOMETRIC_EMAIL',
         options: const AuthenticationOptions(
           biometricOnly: true,
           stickyAuth: true,
@@ -64,22 +92,75 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
       if (didAuthenticate) {
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => HomePage(
-              isDarkMode: widget.isDarkMode,
-              onToggleTheme: widget.onToggleTheme,
-              onLanguageChange: widget.onLanguageChange,
-              customTitle: "Diary",
+        // Try to sign in with saved password
+        final prefs = await SharedPreferences.getInstance();
+        String? savedPass = prefs.getString(PASSWORD_STORAGE_KEY);
+        if (savedPass == null || savedPass.isEmpty) {
+          // If no saved password, ask user to enter it once
+          String? enteredPass = await _promptForPassword(context);
+          if (enteredPass != null && enteredPass.isNotEmpty) {
+            savedPass = enteredPass;
+            await _savePassword(savedPass);
+          } else {
+            setState(() => _errorMessage = "Password required for biometric login.");
+            return;
+          }
+        }
+        // Now sign in with the saved password
+        try {
+          await _auth.signInWithEmailAndPassword(
+            email: BIOMETRIC_EMAIL,
+            password: savedPass,
+          );
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => HomePage(
+                isDarkMode: widget.isDarkMode,
+                onToggleTheme: widget.onToggleTheme,
+                onLanguageChange: widget.onLanguageChange,
+                customTitle: "${BIOMETRIC_EMAIL.split('@')[0]} Diary",
+              ),
             ),
-          ),
-        );
+          );
+        } catch (e) {
+          // If password is wrong, clear it and ask again
+          await _savePassword('');
+          setState(() => _errorMessage = "Saved password is incorrect. Please login with email to update.");
+        }
       }
     } catch (e) {
       setState(() => _errorMessage = "Fingerprint login failed: $e");
     }
+  }
+
+  Future<String?> _promptForPassword(BuildContext context) async {
+    final TextEditingController passCtrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enter Password'),
+        content: TextField(
+          controller: passCtrl,
+          obscureText: true,
+          decoration: const InputDecoration(
+            labelText: 'Password for biometric login',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, passCtrl.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -192,7 +273,7 @@ class _LoginPageState extends State<LoginPage> {
             const SizedBox(height: 10),
             OutlinedButton.icon(
               icon: const Icon(Icons.fingerprint),
-              label: Text(AppLocalizations.translate('fingerprint')),
+              label: Text('Login as $BIOMETRIC_EMAIL'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

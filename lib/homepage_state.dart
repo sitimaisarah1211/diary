@@ -8,19 +8,23 @@ class HomePageState extends State<HomePage> {
   String _selectedFeeling = "Happy";
   final List<String> _feelings = ["Happy", "Sad", "Angry", "Excited", "Amazed"];
 
-  // Emojis – clear distinction
+  // ✅ Clear, distinct emojis for each feeling
   final Map<String, String> _feelingEmojis = {
     "Happy": "😊",
-    "Sad": "😔",
-    "Angry": "😡",
+    "Sad": "😭",       // very sad, clearly different
+    "Angry": "🤬",     // angry with symbols
     "Excited": "🤩",
     "Amazed": "😲",
   };
 
-  // Hanya Happy sahaja ada GIF
+  // ✅ Only Happy uses a GIF – others fall back to emojis
   final Map<String, String> _feelingGifs = {
     "Happy": "assets/images/happy.gif",
-    // Tiada GIF untuk yang lain
+    // Remove or comment out other GIFs
+    // "Sad": "assets/images/sad.gif",
+    // "Angry": "assets/images/angry.gif",
+    // "Excited": "assets/images/excited.gif",
+    // "Amazed": "assets/images/amazed.gif",
   };
 
   String _temperature = "--°C";
@@ -165,32 +169,30 @@ class HomePageState extends State<HomePage> {
 
   // -------------------- Helper: GIF/Emoji --------------------
   Widget _getFeelingWidget(String feeling, {double size = 60}) {
-    // Hanya Happy sahaja yang guna GIF
+    // Only use GIF if it's Happy and the file exists
     if (feeling == "Happy" && _feelingGifs.containsKey(feeling)) {
-      final assetPath = _feelingGifs[feeling];
-      if (assetPath != null) {
-        return Image.asset(
-          assetPath,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          errorBuilder: (ctx, error, stack) {
-            return Text(
-              _feelingEmojis[feeling] ?? '😊',
-              style: TextStyle(fontSize: size),
-            );
-          },
-        );
-      }
+      return Image.asset(
+        _feelingGifs[feeling]!,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (ctx, error, stack) {
+          return Text(
+            _feelingEmojis[feeling] ?? '😊',
+            style: TextStyle(fontSize: size),
+          );
+        },
+      );
+    } else {
+      // All other feelings use emojis
+      return Text(
+        _feelingEmojis[feeling] ?? '😊',
+        style: TextStyle(fontSize: size),
+      );
     }
-    // Untuk semua feeling lain, guna emoji
-    return Text(
-      _feelingEmojis[feeling] ?? '😊',
-      style: TextStyle(fontSize: size),
-    );
   }
 
-  // -------------------- CRUD Operations (with Trash, no undo) --------------------
+  // -------------------- CRUD Operations (no undo) --------------------
   Future<void> _saveDiary() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -234,7 +236,6 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  // ✅ No undo action – just a short notification
   void _deleteDiary(String id, Map<String, dynamic> data) async {
     data['deletedAt'] = FieldValue.serverTimestamp();
     await FirebaseFirestore.instance.collection('deleted_diaries').doc(id).set(data);
@@ -677,7 +678,7 @@ class HomePageState extends State<HomePage> {
       ),
       body: Column(
         children: [
-          // --- Create New Diary Section (reduced height) ---
+          // Create New Diary Section (compact to avoid overflow)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -791,7 +792,7 @@ class HomePageState extends State<HomePage> {
             ),
           ),
           const SizedBox(height: 6),
-          // --- Diary Entries List ---
+          // Diary Entries List
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
