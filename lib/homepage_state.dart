@@ -8,11 +8,11 @@ class HomePageState extends State<HomePage> {
   String _selectedFeeling = "Happy";
   final List<String> _feelings = ["Happy", "Sad", "Angry", "Excited", "Amazed"];
 
-  // ✅ EMOJI FIXED - bezanya jelas
+  // ✅ Updated emojis for clearer distinction
   final Map<String, String> _feelingEmojis = {
     "Happy": "😊",
-    "Sad": "😢",     // sedih - air mata
-    "Angry": "😠",   // marah - muka merah
+    "Sad": "😔",     // changed from 😢
+    "Angry": "😡",   // changed from 😠
     "Excited": "🤩",
     "Amazed": "😲",
   };
@@ -233,6 +233,7 @@ class HomePageState extends State<HomePage> {
     }
   }
 
+  // ✅ UPDATED: Removed undo action, shortened duration
   void _deleteDiary(String id, Map<String, dynamic> data) async {
     data['deletedAt'] = FieldValue.serverTimestamp();
     await FirebaseFirestore.instance.collection('deleted_diaries').doc(id).set(data);
@@ -243,32 +244,7 @@ class HomePageState extends State<HomePage> {
         SnackBar(
           content: Text(AppLocalizations.translate('entry_deleted')),
           backgroundColor: Colors.red.shade700,
-          duration: const Duration(seconds: 6),
-          action: SnackBarAction(
-            label: AppLocalizations.translate('undo'),
-            textColor: Colors.white,
-            onPressed: () async {
-              final deletedDoc = await FirebaseFirestore.instance
-                  .collection('deleted_diaries')
-                  .doc(id)
-                  .get();
-              if (deletedDoc.exists) {
-                final restoredData = deletedDoc.data()!;
-                restoredData.remove('deletedAt');
-                await FirebaseFirestore.instance.collection('diaries').doc(id).set(restoredData);
-                await FirebaseFirestore.instance.collection('deleted_diaries').doc(id).delete();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(AppLocalizations.translate('entry_restored')),
-                      backgroundColor: Colors.green,
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                }
-              }
-            },
-          ),
+          duration: const Duration(seconds: 3),
         ),
       );
     }
@@ -945,7 +921,6 @@ class HomePageState extends State<HomePage> {
                             ),
                             const SizedBox(height: 8),
                             Text(description, style: const TextStyle(fontSize: 14, height: 1.4)),
-                            // ✅ LOCATION FIXED - hanya tunjuk location jika bukan error
                             if (weather.isNotEmpty)
                               Padding(
                                 padding: const EdgeInsets.only(top: 8),
